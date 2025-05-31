@@ -5,6 +5,7 @@ Infinite Copy is a Chrome Extension that allows you to copy anything you want an
 2. **Changed some CSS styling**
 # Known Bugs 🐞
 --No current bugs--
+
 Feel free to drop a comment or a suggestion if there are any bugs/feedback!
 # Work In Progress ⚒️
 We are currently working on:
