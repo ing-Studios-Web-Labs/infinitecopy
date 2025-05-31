@@ -199,30 +199,91 @@ async function handleCopiedItemClick(event) {
     }
 }
 
+async function handleAddText(value) {
+    try {
+        await chrome.storage.sync.get('copiedItems', function(data) {
+            const copiedItems = data.copiedItems || [];
+            copiedItems.unshift(value);
 
-function showAlert(textData) {
-    const container = document.getElementById('alert-container');
-    if (!container) {
-        console.error("Error: 'alert-container' element not found.");
-        return;
+            chrome.storage.sync.set({ 'copiedItems': copiedItems }, function() {
+                console.log('Text added and saved:', value);
+                checkCopiedItems(); // Re-render the list after pasting
+            });
+        });
+    } catch (error) {
+        console.error('Failed to read clipboard:', error);
+        // Optionally display an error message to the user
     }
+}
 
-    const alertDiv = document.createElement('div');
-    alertDiv.classList.add('copy-alert');
-    alertDiv.textContent = textData;
-    container.appendChild(alertDiv);
+function showAlert(textData, inputData = null) {
+    console.log(`inputData is:`,inputData);
+    if (inputData != null) {
+        console.log(`'if' is called!`);
+        const container = document.getElementById('alert-container');
+        if (!container) {
+            console.error("Error: 'alert-container' element not found.");
+            return;
+        }
+        const alertDiv = document.createElement('div');
+        alertDiv.classList.add('copy-alert');
+        const inputPrompt = document.createElement('p');
+        inputPrompt.textContent = textData;
+        alertDiv.appendChild(inputPrompt); // inputPrompt is now a child of alertDiv
 
-    setTimeout(() => {
-        alertDiv.classList.add('show-alert');
-    }, 50);
+        const inputElement = document.createElement('input');
+        inputElement.classList.add('input-text-input');
 
-    setTimeout(function() {
-        alertDiv.classList.remove('show-alert');
-        alertDiv.classList.add('fade-out');
+        // Append inputElement to alertDiv first
+        alertDiv.appendChild(inputElement);
+        // Append the entire alertDiv (which now contains the input) to the container
+        container.appendChild(alertDiv);
+        // Add the 'show-alert' class after it's in the DOM for transitions to work
+        setTimeout(() => {
+            alertDiv.classList.add('show-alert');
+        }, 50);
+        // *** THE FIX: Use .focus() here, after the element is in the DOM ***
+        inputElement.focus();
+        inputElement.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') { // Fixed the assignment operator to comparison '==='
+                event.preventDefault(); // Good practice to prevent default Enter behavior
+
+                const inputValue = inputElement.value;
+                handleAddText(inputValue); // Assuming handleAddText is defined
+
+                // Immediate removal sequence after Enter press
+                alertDiv.classList.remove('show-alert');
+                alertDiv.classList.add('fade-out');
+                setTimeout(function() {
+                    container.removeChild(alertDiv);
+                }, 500); // Allow fade-out animation
+            }
+        });
+    } else {
+        // Your else block remains the same, as it's not trying to autofocus an input.
+        console.log(`'else' is called!`);
+        const container = document.getElementById('alert-container');
+        if (!container) {
+            console.error("Error: 'alert-container' element not found.");
+            return;
+        }
+        const alertDiv = document.createElement('div');
+        alertDiv.classList.add('copy-alert');
+        alertDiv.textContent = textData;
+        container.appendChild(alertDiv);
+
+        setTimeout(() => {
+            alertDiv.classList.add('show-alert');
+        }, 50);
+
         setTimeout(function() {
-            container.removeChild(alertDiv);
-        }, 500);
-    }, 3000);
+            alertDiv.classList.remove('show-alert');
+            alertDiv.classList.add('fade-out');
+            setTimeout(function() {
+                container.removeChild(alertDiv);
+            }, 500);
+        }, 3000);
+    }
 }
 
 function displayFooterText() {
@@ -240,23 +301,26 @@ function pasteTextEventListener() {
 async function pasteTextFromClipboard() { // Renamed function
     try {
         const pastedText = await navigator.clipboard.readText();
-        chrome.storage.sync.get('copiedItems', function(data) {
+        await chrome.storage.sync.get('copiedItems', function(data) {
             const copiedItems = data.copiedItems || [];
             copiedItems.unshift(pastedText);
-            try {
-                chrome.storage.sync.set({ 'copiedItems': copiedItems }, function() {
-                    console.log('Text pasted and saved:', pastedText);
-                    checkCopiedItems(); // Re-render the list after pasting
-                });
-            } catch(error) {
-                showAlert(error);
-            }
+
+            chrome.storage.sync.set({ 'copiedItems': copiedItems }, function() {
+                console.log('Text pasted and saved:', pastedText);
+                checkCopiedItems(); // Re-render the list after pasting
+            });
         });
     } catch (error) {
-        showAlert('Falied to read clipboard, try checking your permissions again.');
         console.error('Failed to read clipboard:', error);
         // Optionally display an error message to the user
     }
+}
+
+function addTextEventListener() {
+    const addTextBtn = document.getElementById('add-text-btn');
+    addTextBtn.addEventListener('click', () => {
+        showAlert('What would you like to input?', true);
+    });
 }
 
 function clearAllText(){
@@ -271,7 +335,7 @@ function clearAllText(){
 
 // Consolidated paste function for both text and image HTML
 async function pasteItem(itemValue) {
-    chrome.storage.sync.get('copiedItems', function(data) {
+    await chrome.storage.sync.get('copiedItems', function(data) {
         const copiedItems = data.copiedItems || [];
         copiedItems.unshift(itemValue);
         chrome.storage.sync.set({ 'copiedItems': copiedItems }, function() {
@@ -281,15 +345,10 @@ async function pasteItem(itemValue) {
     });
 }
 
-
 document.addEventListener('DOMContentLoaded', function() {
-    try {
-        checkCopiedItems();
-        displayFooterText();
-        pasteTextEventListener(); // Set up the listener for the paste button
-        clearAllText();
-    } catch(error) {
-        console.log(error);
-        showAlert(error);
-    } 
+    checkCopiedItems();
+    displayFooterText();
+    pasteTextEventListener(); // Set up the listener for the paste button
+    addTextEventListener();
+    clearAllText();
 });
