@@ -7,7 +7,7 @@
     --primary-darkest: #1565C0;
     --secondary-color: #03A9F4; /* A complementary light blue */
     --text-primary: #212121; /* Dark grey for primary text */
-    --text-secondary: #757575; /* Medium grey for secondary text */
+    --text-secondary: #00838f; /* Dark cyan for secondary text */
     --background-color: #E3F2FD; /* A very light blue for background */
     --surface-color: #FFFFFF; /* White for surfaces like cards */
     --accent-color: #FFC107; /* A contrasting accent color (amber) */
@@ -147,7 +147,7 @@ button:hover {
     transition: opacity 0.3s ease-out, transform 0.3s ease-out; /* For appearing */
     background-color: #e0f7fa; /* Light cyan background */
     border: 1px solid #b2ebf2;
-    color: #00838f; /* Dark cyan text */
+    color: var(--text-secondary); /* Dark cyan text */
     margin-bottom: 10px; /* Add some margin */
     transform-origin: top center; /* For the zoom-out effect */
 }
@@ -197,4 +197,11 @@ button:hover {
 #settings-icon {
     border: 2px solid #ffffff;
     border-radius: 50%;
+}
+
+.input-text-input {
+    border-color: var(--primary-dark);
+    border-radius: 5px;
+    background-color: var(--surface-color);
+    color: var(--text-primary);
 }
