@@ -1,6 +1,6 @@
 # InfiniteCopy Version 1.1.0 (Stable Release) ♾️
 Infinite Copy is a Chrome Extension that allows you to copy anything you want and re-copy it again. These copied items include both text and images. To paste your current clipboard, press the paste button. To re-copy either text or image, just click on the container you want to copy.
-# Latest Update Patch
+# Latest Update Patch 🆕
 1. **We added the ability to input your own text, so now it sort of becomes a note-taking extension too!**
 2. **Changed some CSS styling**
 # Known Bugs 🐞
