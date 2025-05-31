@@ -13,4 +13,5 @@ We are currently working on:
 3. **Publishing it to the Chrome Web Store! (Really excited for this one!)**
 
 We would like to **thank** all of you guys for your support!
+
 ©2025 (ing) Studios Web Labs
