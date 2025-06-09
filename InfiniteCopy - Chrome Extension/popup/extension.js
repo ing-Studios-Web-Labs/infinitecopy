@@ -11,6 +11,28 @@ if (document.readyState === 'loading') {
     initializeMDC();
 }
 
+async function retrieveTheme() {
+    const storageKey = "extensionTheme";
+    try {
+        // 1. Get the existing array
+        const result = await chrome.storage.sync.get(storageKey);
+        let themeColor = result[storageKey] || []; // Initialize as empty array if not found
+        const root = document.documentElement; // Represents the :root pseudo-class (<html> element)
+        root.style.setProperty('--primary-color', themeColor[0]);
+        root.style.setProperty('--primary-light', themeColor[1]);
+        root.style.setProperty('--primary-dark', themeColor[2]);
+        root.style.setProperty('--primary-darkest', themeColor[3]);
+        root.style.setProperty('--secondary-color', themeColor[4]);
+        root.style.setProperty('--background-color', themeColor[5]);
+        root.style.setProperty('--accent-color', themeColor[6]);
+        console.log('Primary color changed to:', themeColor[0]);
+        
+
+    } catch (error) {
+        console.error("Error fetching array:", error);
+    }
+}
+
 function checkCopiedItems() {
     const copied_items_div = document.getElementById('copied-items');
     chrome.storage.sync.get('copiedItems', function(data) {
@@ -201,7 +223,7 @@ async function handleCopiedItemClick(event) {
 
 async function handleAddText(value) {
     try {
-        await chrome.storage.sync.get('copiedItems', function(data) {
+        chrome.storage.sync.get('copiedItems', function(data) {
             const copiedItems = data.copiedItems || [];
             copiedItems.unshift(value);
 
@@ -301,7 +323,7 @@ function pasteTextEventListener() {
 async function pasteTextFromClipboard() { // Renamed function
     try {
         const pastedText = await navigator.clipboard.readText();
-        await chrome.storage.sync.get('copiedItems', function(data) {
+        chrome.storage.sync.get('copiedItems', function(data) {
             const copiedItems = data.copiedItems || [];
             copiedItems.unshift(pastedText);
 
@@ -335,7 +357,7 @@ function clearAllText(){
 
 // Consolidated paste function for both text and image HTML
 async function pasteItem(itemValue) {
-    await chrome.storage.sync.get('copiedItems', function(data) {
+    chrome.storage.sync.get('copiedItems', function(data) {
         const copiedItems = data.copiedItems || [];
         copiedItems.unshift(itemValue);
         chrome.storage.sync.set({ 'copiedItems': copiedItems }, function() {
@@ -345,7 +367,16 @@ async function pasteItem(itemValue) {
     });
 }
 
+function openSettings() {
+    const settingsButton = document.getElementById('settings-icon');
+    settingsButton.addEventListener('click', () => {
+        chrome.tabs.create({ url: chrome.runtime.getURL('../settings/settings.html') });
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+    openSettings();
+    retrieveTheme();
     checkCopiedItems();
     displayFooterText();
     pasteTextEventListener(); // Set up the listener for the paste button
