@@ -4,7 +4,7 @@
     --primary-color: #2196F3; /* A standard Material Blue 500 */
     --primary-light: #64B5F6; /* Material Blue 300 */
     --primary-dark: #1976D2; /* Material Blue 700 */
-    --primary-darkest: #1565C0;
+    --primary-darkest: #0D47A1; /* Material Blue 900 */
     --secondary-color: #03A9F4; /* A complementary light blue */
     --text-primary: #212121; /* Dark grey for primary text */
     --text-secondary: #757575; /* Medium grey for secondary text */
@@ -144,7 +144,62 @@ button:hover {
     transition: opacity 0.5s ease-in, transform 0.5s ease-in; /* For disappearing */
 }
 
-.main-content {
+.theme-style {
+    cursor: pointer;
+    width: 40px;
+    height: 40px;
+    border: 2px solid var(--primary-dark);
+    border-radius: 50%;
+    background-color: var(--primary-color);
+    /* Add transition for smooth animation */
+    transition: transform 0.2s ease-in-out;
+    /* Center the element for consistent scaling from the middle */
+    display: flex; /* Or display: block; and use margin: auto; if it's the only block element */
+    justify-content: center;
+    align-items: center;
+}
+
+.theme-style:hover {
+    /* Scale by 120% (1 + 0.20) */
+    transform: scale(1.2);
+    /*
+     Alternatively, if you want to explicitly control width/height without transform,
+     you would need to use absolute positioning or a similar technique to prevent reflow.
+     However, transform: scale() is generally more performant for this specific effect.
+
+     If you were to use width/height directly AND avoid reflow, you would need
+     to wrap this element in a container and absolutely position it, then
+     adjust its top/left on hover to simulate scaling from the center.
+     But that's more complex than 'transform: scale()'.
+    */
+}
+
+#theme-options {
     display: flex;
     flex-direction: row;
+    gap: 10px;
+}
+
+#blue {
+    background-color: #2196F3;
+}
+
+#red {
+    background-color: #F44336;
+}
+
+#purple {
+    background-color: #9C27B0;
+}
+
+#green {
+    background-color: #4CAF50;
+}
+
+#yellow {
+    background-color: #FFEB3B;
+}
+
+#theme-header {
+    color: var(--primary-color);
 }
