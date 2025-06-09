@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "InfiniteCopy",
-    "version": "1.1.1",
+    "version": "1.1.2",
     "description": "Copy anything, infinitely.",
     "author": "(ing) Studios Web Labs",
     "action": {
@@ -18,7 +18,8 @@
       "clipboardWrite",
       "contextMenus",
       "scripting",
-      "notifications"
+      "notifications",
+      "tabs"
     ],
     "host_permissions": [
       "<all_urls>"
