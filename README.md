@@ -6,7 +6,7 @@ Infinite Copy is a Chrome Extension that allows you to copy anything you want an
 # Known Bugs 🐞
 --No current bugs--
 
-Feel free to drop a comment or a suggestion if there are any bugs/feedback [here](https://docs.google.com/forms/d/e/1FAIpQLSeqvyz_kWR0zs3ZG-kkQbMTvkMQ2Mu7tZ_3aXbYybqnciVV5A/viewform?usp=header)!
+Feel free to drop a comment or a suggestion if there are any bugs/feedback [here](https://docs.google.com/forms/d/e/1FAIpQLSeqvyz_kWR0zs3ZG-kkQbMTvkMQ2Mu7tZ_3aXbYybqnciVV5A/viewform?usp=header) or create an issue [here](https://github.com/ingStudiosOfficial/infinitecopy/issues/new)!
 # Work In Progress ⚒️
 We are currently working on:
 1. **Adding support for copying multiple formats (etc. plain text and images at the same time)**
