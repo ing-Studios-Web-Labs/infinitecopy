@@ -203,3 +203,11 @@ button:hover {
 #theme-header {
     color: var(--primary-color);
 }
+
+#export-data-btn {
+    gap: 5px;
+    color: #ffffff;
+    width: fit-content;
+    padding-left: 5px;
+    padding-right: 5px;
+}

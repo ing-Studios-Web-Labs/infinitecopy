@@ -37,6 +37,28 @@ async function pasteToStorage(pastedText, sourceUrl = "Unknown Source") { // Add
     }
 }
 
+async function checkTheme() {
+    // Using a Promise-based approach for chrome.storage.sync.get for better async/await integration
+    // Alternatively, you can keep the callback if you prefer.
+    try {
+        const items = await chrome.storage.sync.get('extensionTheme');
+
+        if (items.extensionTheme === undefined) { // Cleaner way to access if you know the key
+            console.log("The item 'extensionTheme' is not set in chrome.storage.sync.");
+            const hexColor = ['#2196F3', '#64B5F6', '#1976D2', '#0D47A1', '##03A9F4', '#E3F2FD', '#FFC107']; // Fixed typo: #03A9F4
+            
+            // Correct way to use chrome.storage.sync.set with async/await
+            await chrome.storage.sync.set({ 'extensionTheme': hexColor });
+            console.log("Default 'extensionTheme' (hexColor array) saved.");
+
+        } else {
+            console.log("The item 'extensionTheme' exists and its value is:", items.extensionTheme);
+            // Do something with items.extensionTheme
+        }
+    } catch (error) {
+        console.error("Error checking/setting theme:", error);
+    }
+}
 
 // Create context menu items on extension installation
 chrome.runtime.onInstalled.addListener(() => {
@@ -57,6 +79,7 @@ chrome.runtime.onInstalled.addListener(() => {
         title: "Copy image to InfiniteCopy",
         contexts: ["image"]
     });
+    checkTheme();
 });
 
 
