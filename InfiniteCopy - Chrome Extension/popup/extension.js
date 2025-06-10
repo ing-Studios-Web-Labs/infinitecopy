@@ -163,7 +163,6 @@ function updateFilterButtonStyles() {
     }
 }
 
-
 async function checkClipboardType() {
     try {
         const clipboardItems = await navigator.clipboard.read();
