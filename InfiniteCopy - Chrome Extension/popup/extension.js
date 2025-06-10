@@ -1,3 +1,7 @@
+// Global variable to store the current filter state
+// Can be 'all', 'text', or 'image'
+let currentFilter = 'all'; 
+
 const initializeMDC = () => {
     const switches = document.querySelectorAll('.mdc-switch');
     switches.forEach(switchElement => {
@@ -14,10 +18,9 @@ if (document.readyState === 'loading') {
 async function retrieveTheme() {
     const storageKey = "extensionTheme";
     try {
-        // 1. Get the existing array
         const result = await chrome.storage.sync.get(storageKey);
-        let themeColor = result[storageKey] || []; // Initialize as empty array if not found
-        const root = document.documentElement; // Represents the :root pseudo-class (<html> element)
+        let themeColor = result[storageKey] || [];
+        const root = document.documentElement;
         root.style.setProperty('--primary-color', themeColor[0]);
         root.style.setProperty('--primary-light', themeColor[1]);
         root.style.setProperty('--primary-dark', themeColor[2]);
@@ -26,49 +29,58 @@ async function retrieveTheme() {
         root.style.setProperty('--background-color', themeColor[5]);
         root.style.setProperty('--accent-color', themeColor[6]);
         console.log('Primary color changed to:', themeColor[0]);
-        
-
     } catch (error) {
         console.error("Error fetching array:", error);
     }
 }
 
+/**
+ * Filters and displays copied items based on the currentFilter.
+ */
 function checkCopiedItems() {
     const copied_items_div = document.getElementById('copied-items');
     chrome.storage.sync.get('copiedItems', function(data) {
         const copiedItems = data.copiedItems || [];
         console.log('Retrieved copiedItems:', copiedItems);
 
-        copied_items_div.innerHTML = '';
+        copied_items_div.innerHTML = ''; // Clear existing items
 
-        if (copiedItems.length > 0) {
-            copiedItems.forEach(function(value, index) {
+        // Filter the items based on the currentFilter
+        const filteredItems = copiedItems.filter(value => {
+            if (currentFilter === 'all') {
+                return true; // Show all items
+            } else if (currentFilter === 'text') {
+                return !value.includes('<img'); // Show only text items
+            } else if (currentFilter === 'image') {
+                return value.includes('<img'); // Show only image items
+            }
+            return true; // Default to showing all if filter is unknown
+        });
+
+        if (filteredItems.length > 0) {
+            filteredItems.forEach(function(value, index) {
                 const copied_list = document.createElement('div');
                 copied_list.classList.add('copied-list');
                 copied_list.dataset.index = index;
-                // Store the raw value for later use, including HTML for images
                 copied_list.dataset.rawValue = value;
 
                 const contentElement = document.createElement('div');
                 if (value.includes('<img')) {
                     const imgdiv = document.createElement('div');
-                    // Create a temporary div to parse the HTML string and get the actual img element
                     const tempDiv = document.createElement('div');
                     tempDiv.innerHTML = value;
                     const imgElement = tempDiv.querySelector('img');
 
                     if (imgElement) {
-                        // Display the image
                         imgdiv.innerHTML = `<h2>${index+1}:</h2>`;
                         const displayedImg = document.createElement('img');
-                        displayedImg.src = imgElement.src; // Use the actual src for display
+                        displayedImg.src = imgElement.src;
                         displayedImg.alt = imgElement.alt || 'Copied Image';
                         displayedImg.style.width = '100%';
                         displayedImg.style.height = 'auto';
                         displayedImg.style.borderRadius = '25px';
                         imgdiv.appendChild(displayedImg);
                     } else {
-                        // Fallback if img tag is malformed or not found
                         imgdiv.innerHTML = `<h2>${index+1}:</h2>Image (HTML snippet)`;
                     }
                     contentElement.appendChild(imgdiv);
@@ -110,6 +122,48 @@ function checkCopiedItems() {
     });
 }
 
+/**
+ * Handles clicks on the filter buttons.
+ * @param {string} type - The type of content to filter ('text' or 'image').
+ */
+function handleFilterClick(type) {
+    if (currentFilter === type) {
+        // If the same filter button is pressed again, turn off filtering
+        currentFilter = 'all';
+    } else {
+        // Otherwise, set the new filter type
+        currentFilter = type;
+    }
+    // Re-render the list with the new filter
+    checkCopiedItems();
+
+    // Optionally, update button styles to show active filter
+    updateFilterButtonStyles();
+}
+
+/**
+ * Updates the visual state of the filter buttons.
+ */
+function updateFilterButtonStyles() {
+    const textButton = document.getElementById('filter-text');
+    const imageButton = document.getElementById('filter-image');
+
+    if (textButton) {
+        if (currentFilter === 'text') {
+            textButton.classList.add('content-filtered');
+            imageButton.classList.remove('content-filtered');
+        } else if (currentFilter === 'image') {
+            textButton.classList.remove('content-filtered');
+            imageButton.classList.add('content-filtered');
+        } else {
+            // No filter active, remove active class from both
+            textButton.classList.remove('content-filtered');
+            imageButton.classList.remove('content-filtered');
+        }
+    }
+}
+
+
 async function checkClipboardType() {
     try {
         const clipboardItems = await navigator.clipboard.read();
@@ -117,21 +171,19 @@ async function checkClipboardType() {
             const clipboardTypes = clipboardItem.types;
             if (clipboardTypes.includes('text/html') && clipboardTypes.includes('image/png')) {
                 console.log('PNG Image with HTML data detected!');
-                // For images, we want to store the HTML string to preserve the <img> tag structure
                 const htmlBlob = await clipboardItem.getType('text/html');
                 const htmlText = await htmlBlob.text();
                 console.log('HTML Text:', htmlText);
-                // Extract the image source from the HTML to store
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = htmlText;
                 const imgElement = tempDiv.querySelector('img');
                 if (imgElement && imgElement.src) {
-                    pasteItem(htmlText); // Store the full HTML string for display
+                    pasteItem(htmlText);
                 } else {
-                    pasteItem(htmlText); // Fallback if no valid img src found
+                    pasteItem(htmlText);
                 }
             } else if (clipboardTypes.includes('text/plain')) {
-                pasteTextFromClipboard(); // Renamed to avoid shadowing
+                pasteTextFromClipboard();
             }
         }
     } catch (error) {
@@ -149,20 +201,18 @@ function handleDeleteItem(index) {
                 console.error('Error updating storage after deletion:', chrome.runtime.lastError);
             } else {
                 console.log('Item deleted and storage updated.');
-                checkCopiedItems(); // Re-render the list
+                checkCopiedItems();
             }
         });
     });
 }
 
-// *** MODIFIED FUNCTION TO HANDLE IMAGE COPYING ***
 async function handleCopiedItemClick(event) {
     const hoveredElement = event.target.closest('.copied-list');
     if (hoveredElement) {
-        const rawValue = hoveredElement.dataset.rawValue; // Get the raw stored value
+        const rawValue = hoveredElement.dataset.rawValue;
 
         if (rawValue.includes('<img')) {
-            // It's an image, attempt to copy the image data
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = rawValue;
             const imgElement = tempDiv.querySelector('img');
@@ -170,18 +220,11 @@ async function handleCopiedItemClick(event) {
             if (imgElement && imgElement.src) {
                 try {
                     const imageUrl = imgElement.src;
-
-                    // Fetch the image data
                     const response = await fetch(imageUrl);
                     if (!response.ok) {
-                        // If cross-origin without CORS headers, fetch might fail.
-                        // In a Chrome Extension, you might have more flexibility with permissions
-                        // but it's good to be aware.
                         throw new Error(`Failed to fetch image: ${response.statusText}`);
                     }
                     const imageBlob = await response.blob();
-
-                    // Create ClipboardItem and write to clipboard
                     const clipboardItem = new ClipboardItem({
                         [imageBlob.type]: imageBlob,
                     });
@@ -190,7 +233,6 @@ async function handleCopiedItemClick(event) {
                 } catch (error) {
                     console.error('Failed to copy image to clipboard:', error);
                     showAlert(`Failed to copy image: ${error.message}. Check console for details.`);
-                    // Fallback to copying HTML if image copy fails (e.g., CORS)
                     try {
                         await navigator.clipboard.writeText(rawValue);
                         showAlert('Failed to copy image, copied HTML instead.');
@@ -199,7 +241,6 @@ async function handleCopiedItemClick(event) {
                     }
                 }
             } else {
-                // If it's an img HTML but no valid src found, copy the HTML as text
                 try {
                     await navigator.clipboard.writeText(rawValue);
                     showAlert('Image HTML copied to clipboard (no valid image source found).');
@@ -209,7 +250,6 @@ async function handleCopiedItemClick(event) {
                 }
             }
         } else {
-            // It's plain text, copy as text
             try {
                 await navigator.clipboard.writeText(rawValue);
                 showAlert(`Text '${rawValue.substring(0, 50)}...' copied to clipboard.`);
@@ -229,17 +269,16 @@ async function handleAddText(value) {
 
             chrome.storage.sync.set({ 'copiedItems': copiedItems }, function() {
                 console.log('Text added and saved:', value);
-                checkCopiedItems(); // Re-render the list after pasting
+                checkCopiedItems();
             });
         });
     } catch (error) {
         console.error('Failed to read clipboard:', error);
-        // Optionally display an error message to the user
     }
 }
 
 function showAlert(textData, inputData = null) {
-    console.log(`inputData is:`,inputData);
+    console.log(`inputData is:`, inputData);
     if (inputData != null) {
         console.log(`'if' is called!`);
         const container = document.getElementById('alert-container');
@@ -251,38 +290,32 @@ function showAlert(textData, inputData = null) {
         alertDiv.classList.add('copy-alert');
         const inputPrompt = document.createElement('p');
         inputPrompt.textContent = textData;
-        alertDiv.appendChild(inputPrompt); // inputPrompt is now a child of alertDiv
+        alertDiv.appendChild(inputPrompt);
 
         const inputElement = document.createElement('input');
         inputElement.classList.add('input-text-input');
 
-        // Append inputElement to alertDiv first
         alertDiv.appendChild(inputElement);
-        // Append the entire alertDiv (which now contains the input) to the container
         container.appendChild(alertDiv);
-        // Add the 'show-alert' class after it's in the DOM for transitions to work
         setTimeout(() => {
             alertDiv.classList.add('show-alert');
         }, 50);
-        // *** THE FIX: Use .focus() here, after the element is in the DOM ***
         inputElement.focus();
         inputElement.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') { // Fixed the assignment operator to comparison '==='
-                event.preventDefault(); // Good practice to prevent default Enter behavior
+            if (event.key === 'Enter') {
+                event.preventDefault();
 
                 const inputValue = inputElement.value;
-                handleAddText(inputValue); // Assuming handleAddText is defined
+                handleAddText(inputValue);
 
-                // Immediate removal sequence after Enter press
                 alertDiv.classList.remove('show-alert');
                 alertDiv.classList.add('fade-out');
                 setTimeout(function() {
                     container.removeChild(alertDiv);
-                }, 500); // Allow fade-out animation
+                }, 500);
             }
         });
     } else {
-        // Your else block remains the same, as it's not trying to autofocus an input.
         console.log(`'else' is called!`);
         const container = document.getElementById('alert-container');
         if (!container) {
@@ -320,7 +353,7 @@ function pasteTextEventListener() {
     paste_button.addEventListener('click', checkClipboardType);
 }
 
-async function pasteTextFromClipboard() { // Renamed function
+async function pasteTextFromClipboard() {
     try {
         const pastedText = await navigator.clipboard.readText();
         chrome.storage.sync.get('copiedItems', function(data) {
@@ -329,12 +362,11 @@ async function pasteTextFromClipboard() { // Renamed function
 
             chrome.storage.sync.set({ 'copiedItems': copiedItems }, function() {
                 console.log('Text pasted and saved:', pastedText);
-                checkCopiedItems(); // Re-render the list after pasting
+                checkCopiedItems();
             });
         });
     } catch (error) {
         console.error('Failed to read clipboard:', error);
-        // Optionally display an error message to the user
     }
 }
 
@@ -345,24 +377,23 @@ function addTextEventListener() {
     });
 }
 
-function clearAllText(){
+function clearAllText() {
     const clearAllBtn = document.getElementById('clear-all-btn');
     clearAllBtn.addEventListener('click', function() {
         chrome.storage.sync.remove('copiedItems', function() {
             showAlert(`All copied items cleared successfully.`);
-            checkCopiedItems(); // Re-render after clearing
+            checkCopiedItems();
         });
     });
 }
 
-// Consolidated paste function for both text and image HTML
 async function pasteItem(itemValue) {
     chrome.storage.sync.get('copiedItems', function(data) {
         const copiedItems = data.copiedItems || [];
         copiedItems.unshift(itemValue);
         chrome.storage.sync.set({ 'copiedItems': copiedItems }, function() {
             console.log('Item pasted and saved:', itemValue);
-            checkCopiedItems(); // Re-render the list after pasting
+            checkCopiedItems();
         });
     });
 }
@@ -379,7 +410,21 @@ document.addEventListener('DOMContentLoaded', function() {
     retrieveTheme();
     checkCopiedItems();
     displayFooterText();
-    pasteTextEventListener(); // Set up the listener for the paste button
+    pasteTextEventListener();
     addTextEventListener();
     clearAllText();
+
+    // Add event listeners for the filter buttons
+    const filterTextButton = document.getElementById('filter-text');
+    const filterImageButton = document.getElementById('filter-image');
+
+    if (filterTextButton) {
+        filterTextButton.addEventListener('click', () => handleFilterClick('text'));
+    }
+    if (filterImageButton) {
+        filterImageButton.addEventListener('click', () => handleFilterClick('image'));
+    }
+
+    // Call updateFilterButtonStyles initially to set correct state
+    updateFilterButtonStyles();
 });
