@@ -45,7 +45,7 @@ async function checkTheme() {
 
         if (items.extensionTheme === undefined) { // Cleaner way to access if you know the key
             console.log("The item 'extensionTheme' is not set in chrome.storage.sync.");
-            const hexColor = ['#2196F3', '#64B5F6', '#1976D2', '#0D47A1', '##03A9F4', '#E3F2FD', '#FFC107']; // Fixed typo: #03A9F4
+            const hexColor = ['#2196F3', '#64B5F6', '#1976D2', '#0D47A1', '#03A9F4', '#E3F2FD', '#FFC107']; // Fixed typo: #03A9F4
             
             // Correct way to use chrome.storage.sync.set with async/await
             await chrome.storage.sync.set({ 'extensionTheme': hexColor });
