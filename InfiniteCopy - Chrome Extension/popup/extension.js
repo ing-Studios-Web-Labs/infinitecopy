@@ -15,28 +15,44 @@ if (document.readyState === 'loading') {
     initializeMDC();
 }
 
-async function retrieveTheme() {
+async function retrieveTheme(getValue = false) {
     const storageKey = "extensionTheme";
-    try {
-        const result = await chrome.storage.sync.get(storageKey);
-        let themeColor = result[storageKey] || [];
-        const root = document.documentElement;
-        root.style.setProperty('--primary-color', themeColor[0]);
-        root.style.setProperty('--primary-light', themeColor[1]);
-        root.style.setProperty('--primary-dark', themeColor[2]);
-        root.style.setProperty('--primary-darkest', themeColor[3]);
-        root.style.setProperty('--secondary-color', themeColor[4]);
-        root.style.setProperty('--background-color', themeColor[5]);
-        root.style.setProperty('--accent-color', themeColor[6]);
-        console.log('Primary color changed to:', themeColor[0]);
-    } catch (error) {
-        console.error("Error fetching array:", error);
+    const result = await chrome.storage.sync.get(storageKey);
+    let themeColor = result[storageKey] || [];
+    if (getValue === true) {
+        console.log('getValue === true!');
+        return themeColor;
+    } else {
+        console.log('getValue === false!');
+        try {
+            const root = document.documentElement;
+            root.style.setProperty('--primary-color', themeColor[0]);
+            root.style.setProperty('--primary-light', themeColor[1]);
+            root.style.setProperty('--primary-dark', themeColor[2]);
+            root.style.setProperty('--primary-darkest', themeColor[3]);
+            root.style.setProperty('--secondary-color', themeColor[4]);
+            root.style.setProperty('--background-color', themeColor[5]);
+            root.style.setProperty('--accent-color', themeColor[6]);
+            console.log('Primary color changed to:', themeColor[0]);
+        } catch (error) {
+            console.error("Error fetching array:", error);
+        }
     }
 }
 
 /**
  * Filters and displays copied items based on the currentFilter.
  */
+
+function isValidUrl(urlString) {
+  try {
+    new URL(urlString);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 function checkCopiedItems() {
     const copied_items_div = document.getElementById('copied-items');
     chrome.storage.sync.get('copiedItems', function(data) {
@@ -116,7 +132,7 @@ function checkCopiedItems() {
         } else {
             const message = document.createElement('p');
             message.classList.add('no-copied-msg');
-            message.innerHTML = `No copied text!\nJust copy text and press the paste button below to get started!`;
+            message.innerHTML = `No copied content!\nJust copy some text or an image and press the paste button below to get started!`;
             copied_items_div.appendChild(message);
         }
     });
@@ -249,12 +265,28 @@ async function handleCopiedItemClick(event) {
                 }
             }
         } else {
-            try {
-                await navigator.clipboard.writeText(rawValue);
-                showAlert(`Text '${rawValue.substring(0, 50)}...' copied to clipboard.`);
-            } catch (error) {
-                console.error('Failed to copy text:', error);
-                showAlert('Failed to copy text.');
+            if (isValidUrl(rawValue)) {
+                document.addEventListener('keydown', (event) => {
+                    if (event.ctrlKey) {
+                        try {
+                            chrome.tabs.create({ url: rawValue, active: true }, (newTab) => {
+                                console.log('Opened new tab with ID:', newTab.id, 'and URL:', newTab.url);
+                                // Optional: You can do something with the newTab object here
+                            });
+                        } catch (error) {
+                            console.error('Failed to open URL:', error);
+                            showAlert('Failed to open URL.');
+                        }
+                    }
+                });
+            } else {
+                try {
+                    await navigator.clipboard.writeText(rawValue);
+                    showAlert(`Text '${rawValue.substring(0, 50)}...' copied to clipboard.`);
+                } catch (error) {
+                    console.error('Failed to copy text:', error);
+                    showAlert('Failed to copy text.');
+                }
             }
         }
     }
@@ -350,6 +382,11 @@ function displayFooterText() {
 function pasteTextEventListener() {
     const paste_button = document.getElementById('paste-btn');
     paste_button.addEventListener('click', checkClipboardType);
+    document.addEventListener('keydown', (event) => {
+        if (event.ctrlKey && event.key == 'v') {
+            checkClipboardType();
+        }
+    });
 }
 
 async function pasteTextFromClipboard() {
@@ -404,9 +441,33 @@ function openSettings() {
     });
 }
 
+// Function to check if the user has scrolled to the bottom
+function isAtPageBottom() {
+    const scrolledHeight = window.scrollY || window.pageYOffset;
+    const viewportHeight = window.innerHeight;
+    const totalPageHeight = document.documentElement.scrollHeight;
+    const tolerance = 5; // Pixels to account for potential rendering differences
+    return (scrolledHeight + viewportHeight >= totalPageHeight - tolerance);
+}
+
+const parentAction = document.querySelector('.parent-action');
+const actionsContainer = document.getElementById('actions-container');
+function updateActionButtonsPosition() {
+    if (isAtPageBottom()) {
+        // Add a class when at the bottom
+        parentAction.classList.add('at-bottom');
+        actionsContainer.classList.add('at-bottom-radius');
+    } else {
+        // Remove the class when not at the bottom
+        parentAction.classList.remove('at-bottom');
+        actionsContainer.classList.remove('at-bottom-radius');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     openSettings();
     retrieveTheme();
+    updateActionButtonsPosition();
     checkCopiedItems();
     displayFooterText();
     pasteTextEventListener();
@@ -423,7 +484,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (filterImageButton) {
         filterImageButton.addEventListener('click', () => handleFilterClick('image'));
     }
-
     // Call updateFilterButtonStyles initially to set correct state
     updateFilterButtonStyles();
+
+    // Attach a scroll event listener
+    window.addEventListener('scroll', updateActionButtonsPosition);
 });
