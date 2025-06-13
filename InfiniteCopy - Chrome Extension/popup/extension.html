@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>InfiniteCopy</title>
-    <link rel="icon" type="image/x-icon" href="../assets/favicon.ico">
+    <link rel="icon" type="image/x-icon" href="../assets/logo_blue.ico" id="page-favicon">
     <link rel="stylesheet" href="extension.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=add,close,content_paste,image,settings,text_fields">
     <link rel="stylesheet" href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css">
@@ -31,19 +31,21 @@
             </div>
         </div>
         <div id="copied-items"></div>
-        <div class="actions-container">
-            <div id="paste-btn" class="button-style">
-                <span class="material-symbols-outlined">
-                    content_paste
-                </span>
-            </div>
-            <div id="add-text-btn" class="button-style">
-                <span class="material-symbols-outlined">
-                    add
-                </span>
-            </div>
-            <div id="clear-all-btn" class="button-style">
-                <p>Clear All</p>
+        <div class="parent-action">
+            <div class="actions-container" id="actions-container">
+                <div id="paste-btn" class="button-style">
+                    <span class="material-symbols-outlined">
+                        content_paste
+                    </span>
+                </div>
+                <div id="add-text-btn" class="button-style">
+                    <span class="material-symbols-outlined">
+                        add
+                    </span>
+                </div>
+                <div id="clear-all-btn" class="button-style">
+                    <p>Clear All</p>
+                </div>
             </div>
         </div>
     </main>
