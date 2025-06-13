@@ -33,7 +33,7 @@ function checkColor(currentColor) {
         hexColor = ['#2196F3','#64B5F6','#1976D2','#0D47A1','#03A9F4','#E3F2FD','#FFC107'];
     }
     if (currentColor == 'red') {
-        hexColor = ['#F44336','#e57373','#d32f2f','#b71c1c','#e91e63','#ffebee','#4CAF50'];
+        hexColor = ['#F44336','#e57373','#d32f2f','#B71C1C','#e91e63','#ffebee','#4CAF50'];
     }
     if (currentColor == 'purple') {
         hexColor = ['#9C27B0','#BA68C8','#7B1FA2','#4A148C','#673AB7','#F3E5F5','#FFEB3B'];
@@ -89,6 +89,13 @@ async function saveTheme(theme) {
     try {
         await chrome.storage.sync.set({ [storageKey]: theme });
         console.log("Array saved successfully:", theme);
+        chrome.runtime.sendMessage({ action: "updateExtensionTheme" }, (response) => {
+            if (chrome.runtime.lastError) {
+                console.error("Error sending message to background:", chrome.runtime.lastError.message);
+            } else {
+                console.log("Background response:", response);
+            }
+        });
     } catch (error) {
         console.error("Error setting array:", error);
     }
@@ -117,6 +124,7 @@ function changeTheme() {
             root.style.setProperty('--accent-color', themeColor[6]);
             console.log('Primary color changed to:', themeColor[0]);
             saveTheme(themeColor);
+            changeFavicon(clickedElementId);
         }
     });
 }
@@ -281,6 +289,11 @@ async function exportAllStorageDataToJson() {
             }
         }
     });
+}
+
+function changeFavicon(color) {
+    const pageFavicon = document.getElementById('page-favicon');
+    pageFavicon.href = `../assets/logo_${color}.ico`;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
