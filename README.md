@@ -5,7 +5,8 @@ Infinite Copy is a Chrome Extension that allows you to copy anything you want an
 2. **Minor file structure improvements**
 3. **Favicon and extension icon now change when you change themes**
 4. **You can now open links with ctrl click**
-5. **New dynamic action bar**
+5. **You can now paste items with ctrl v**
+6. **New dynamic action bar**
 # Known Bugs 🐞
 1. **Dynamic action bar in the way of last copied item**
 
