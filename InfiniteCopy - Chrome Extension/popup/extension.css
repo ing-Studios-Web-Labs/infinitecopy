@@ -91,20 +91,23 @@ button:hover {
     width: 40px;
     height: 40px;
     border-radius: 20px;
+    transition: border-radius 0.2s ease-in-out;
 }
 .button-style:hover {
     background-color: var(--primary-dark);
+    border-radius: 10px;
     cursor: pointer;
 }
 .button-style:active {
     background-color: var(--primary-darkest);
+    border-radius: 10px;
 }
 #footer-text {
     margin-left: 10px;
 }
 .copied-list {
     cursor: pointer;
-    position: relative;
+    position: relative; /* Crucial for positioning the item dropdown */
     padding: 5px;
     border-radius: 25px;
     background-color: var(--secondary-color);
@@ -115,7 +118,7 @@ button:hover {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
     transition: box-shadow 0.3s ease, transform 0.3s ease;
     width: auto;
-    overflow: hidden;
+    overflow: hidden; /* Ensure content doesn't overflow */
 }
 
 .copied-list .fit-image {
@@ -124,6 +127,12 @@ button:hover {
     object-fit: fill; /* Stretches the image to fill */
     display: block;
     border-radius: 25px;
+}
+
+.copied-list.is-opening-url {
+    background-color: var(--primary-dark);
+    /* Add a transition for a smoother effect if desired */
+    transition: background-color 0.3s ease;
 }
 
 .copied-list:hover {
@@ -137,34 +146,33 @@ button:hover {
     left: 50%;
     transform: translateX(-50%);
     z-index: 1000;
-    /* background-color: var(--primary-light); */ /* Keep if you have the variable */
 }
 
 .copy-alert {
     width: 300px;
     height: fit-content;
     text-align: center;
-    padding: 10px 20px; /* Increased padding for better visibility */
+    padding: 10px 20px;
     border-radius: 5px;
-    opacity: 0; /* Initially hidden */
-    transform: translateY(-100%); /* Initially positioned above */
-    transition: opacity 0.3s ease-out, transform 0.3s ease-out; /* For appearing */
-    background-color: #e0f7fa; /* Light cyan background */
+    opacity: 0;
+    transform: translateY(-100%);
+    transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+    background-color: #e0f7fa;
     border: 1px solid #b2ebf2;
-    color: var(--text-secondary); /* Dark cyan text */
-    margin-bottom: 10px; /* Add some margin */
-    transform-origin: top center; /* For the zoom-out effect */
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+    transform-origin: top center;
 }
 
 .copy-alert.show-alert {
-    opacity: 1; /* Fade in */
-    transform: translateY(0); /* Slide down to its normal position */
+    opacity: 1;
+    transform: translateY(0);
 }
 
 .copy-alert.fade-out {
-    opacity: 0; /* Fade out */
-    transform: scale(0.1); /* Zoom out slightly */
-    transition: opacity 0.5s ease-in, transform 0.5s ease-in; /* For disappearing */
+    opacity: 0;
+    transform: scale(0.1);
+    transition: opacity 0.5s ease-in, transform 0.5s ease-in;
 }
 
 #clear-all-btn {
@@ -176,14 +184,13 @@ button:hover {
 
 .parent-action {
     position: fixed;
-    bottom: 20px; /* Initial position */
+    bottom: 20px;
     left: 50%;
     transform: translateX(-50%);
     display: flex;
     align-items: center;
     justify-content: center;
-    /* Add transition for 'bottom' property */
-    transition: bottom 0.3s ease-out, border-radius 0.3s ease-out; /* Add border-radius here too if it's applied directly to parent */
+    transition: bottom 0.3s ease-out, border-radius 0.3s ease-out;
 }
 
 .actions-container {
@@ -193,16 +200,14 @@ button:hover {
     justify-content: center;
     width: fit-content;
     padding: 5px;
-    border-radius: 25px; /* Initial border-radius */
+    border-radius: 25px;
     position: relative;
     z-index: 1;
     overflow: hidden;
-    /* Add transition for 'border-radius' */
     transition: border-radius 0.3s ease-out;
     border: 2px solid var(--primary-light);
 }
 
-/* Create the pseudo-element for the transparent background */
 .actions-container::before {
     content: '';
     position: absolute;
@@ -212,27 +217,22 @@ button:hover {
     height: 100%;
     background-color: var(--primary-dark);
     opacity: 0.925;
-    /* VERY IMPORTANT: Add transition for 'border-radius' here as well */
-    border-radius: inherit; /* This means it will automatically transition if the parent's border-radius changes */
+    border-radius: inherit;
     z-index: -1;
-    transition: border-radius 0.3s ease-out; /* Ensure pseudo-element also transitions */
+    transition: border-radius 0.3s ease-out;
 }
 
-/* CSS added in step 1 is for transitions */
-
-/* New CSS for 'at-bottom' state */
 .parent-action.at-bottom {
-    bottom: 0px; /* Move to the very bottom */
+    bottom: 0px;
 }
 
 .actions-container.at-bottom-radius {
-    border-top-left-radius: 25px;  /* Keep top corners rounded */
-    border-top-right-radius: 25px; /* Keep top corners rounded */
-    border-bottom-left-radius: 0px; /* Make bottom corners sharp */
-    border-bottom-right-radius: 0px; /* Make bottom corners sharp */
+    border-top-left-radius: 25px;
+    border-top-right-radius: 25px;
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
 }
 
-/* Ensure the pseudo-element also adapts its border-radius */
 .actions-container.at-bottom-radius::before {
     border-top-left-radius: 25px;
     border-top-right-radius: 25px;
@@ -240,26 +240,17 @@ button:hover {
     border-bottom-right-radius: 0px;
 }
 
-/* Optional: Adjust padding or other styles if needed when at bottom */
-/* .actions-container.at-bottom-radius {
-    padding-bottom: 10px;
-} */
-
-.delete-button {
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    z-index: 20;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    opacity: 0.925;
-}
-
 #settings-icon {
     border: 2px solid #ffffff;
     border-radius: 50%;
+}
+
+#settings-icon:hover {
+    border-radius: 10px;
+}
+
+#settings-icon:active {
+    border-radius: 10px;
 }
 
 .input-text-input {
@@ -296,4 +287,69 @@ button:hover {
 
 .content-filtered {
     background-color: var(--primary-darkest);
+    border-radius: 10px;
+}
+
+.is-pinned {
+    background-color: var(--primary-darkest);
+    border-radius: 10px;
+}
+
+.no-copied-msg {
+    text-align: center;
+    color: var(--text-secondary);
+    margin-top: 20px;
+    font-size: 1.1em;
+    line-height: 1.5;
+}
+
+
+/* --- NEW STYLES FOR INDIVIDUAL ITEM DROPDOWN --- */
+
+.item-dropdown {
+    position: absolute; /* Position relative to .copied-list */
+    top: 5px;
+    right: 5px;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* No explicit width/height here; button-style will handle that */
+}
+
+.item-menu-button {
+    /* Inherits button-style for size, shape, colors */
+    font-weight: bold;
+    font-size: 1.2em;
+    cursor: pointer;
+    /* Optional: margin if needed */
+}
+
+.item-dropdown-content {
+    display: none; /* Hidden by default */
+    position: absolute;
+    top: 0; /* Align with the 'M' button's top */
+    right: 100%; /* Position to the left of the 'M' button */
+    margin-right: 10px; /* Space between 'M' and delete button */
+    background-color: var(--primary-light); /* Darker background for dropdown */
+    box-shadow: 0px 4px 8px rgba(0,0,0,0.2);
+    border-radius: 10px; /* Rounded corners */
+    padding: 5px;
+    z-index: 21; /* Above the 'M' button */
+
+    opacity: 0;
+    transform: translateX(10px); /* Initial state: slightly to the right */
+    transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+
+    /* To center the delete button vertically if needed */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.item-dropdown-content.show-item-dropdown {
+    display: flex; /* Make it visible */
+    opacity: 1;
+    transform: translateX(0); /* Slide into place */
 }
