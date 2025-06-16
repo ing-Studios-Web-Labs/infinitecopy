@@ -1,6 +1,6 @@
 // Global variable to store the current filter state
 // Can be 'all', 'text', or 'image'
-let currentFilter = 'all'; 
+let currentFilter = 'all';
 
 const initializeMDC = () => {
     const switches = document.querySelectorAll('.mdc-switch');
@@ -45,50 +45,122 @@ async function retrieveTheme(getValue = false) {
  */
 
 function isValidUrl(urlString) {
-  try {
-    new URL(urlString);
-    return true;
-  } catch (e) {
-    return false;
-  }
+    try {
+        new URL(urlString);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+// --- MODIFIED: togglePinStatus to re-insert based on timestamp ---
+async function togglePinStatus(originalIndex) {
+    console.log('Toggling pin status for item at original index:', originalIndex);
+    return new Promise((resolve, reject) => {
+        chrome.storage.sync.get('copiedItems', function(data) {
+            let copiedItems = data.copiedItems || [];
+
+            // Add this filter to clean up potential bad data before processing
+            copiedItems = copiedItems.filter(item => item && typeof item === 'object' && item.value !== undefined && item.timestamp !== undefined);
+
+
+            if (originalIndex < 0 || originalIndex >= copiedItems.length) {
+                console.error('Invalid index provided for toggling pin status:', originalIndex);
+                showAlert('Error: Invalid item index.');
+                return reject('Invalid index');
+            }
+
+            const itemToToggle = copiedItems[originalIndex];
+            const isCurrentlyPinned = itemToToggle.isPinned;
+
+            // Update the pin status
+            itemToToggle.isPinned = !isCurrentlyPinned;
+
+            // Remove the item from its current position
+            copiedItems.splice(originalIndex, 1);
+
+            if (itemToToggle.isPinned) {
+                // If pinning, add it to the beginning of the array
+                copiedItems.unshift(itemToToggle);
+                showAlert('Item successfully pinned!');
+            } else {
+                // If unpinning, re-insert it into its chronological position among unpinned items.
+                // 1. Separate existing pinned and unpinned items
+                const currentPinnedItems = copiedItems.filter(item => item.isPinned);
+                let currentUnpinnedItems = copiedItems.filter(item => !item.isPinned);
+
+                // 2. Add the itemToToggle (now unpinned) to the unpinned array
+                currentUnpinnedItems.push(itemToToggle);
+
+                // 3. Sort the unpinned items by timestamp to maintain chronological order
+                currentUnpinnedItems.sort((a, b) => b.timestamp - a.timestamp); // Newest first for unpinned
+
+                // 4. Recombine the arrays: pinned items first, then chronologically sorted unpinned items
+                copiedItems = currentPinnedItems.concat(currentUnpinnedItems);
+                showAlert('Item successfully unpinned!');
+            }
+
+            chrome.storage.sync.set({ 'copiedItems': copiedItems }, function() {
+                if (chrome.runtime.lastError) {
+                    console.error('Error updating storage after toggling pin status:', chrome.runtime.lastError);
+                    showAlert('Error updating storage.');
+                    return reject(chrome.runtime.lastError);
+                } else {
+                    console.log('Item pin status toggled and storage updated.');
+                    checkCopiedItems(); // Re-render the list
+                    return resolve();
+                }
+            });
+        });
+    });
 }
 
 function checkCopiedItems() {
     const copied_items_div = document.getElementById('copied-items');
     chrome.storage.sync.get('copiedItems', function(data) {
-        const copiedItems = data.copiedItems || [];
-        console.log('Retrieved copiedItems:', copiedItems);
+        let copiedItems = data.copiedItems || [];
 
-        copied_items_div.innerHTML = ''; // Clear existing items
+        const pinnedItems = copiedItems.filter(item => item.isPinned);
+        const unpinnedItems = copiedItems.filter(item => !item.isPinned);
 
-        // Filter the items based on the currentFilter
-        const filteredItems = copiedItems.filter(value => {
+        copiedItems = pinnedItems.concat(unpinnedItems);
+
+        console.log('Retrieved and reordered copiedItems:', copiedItems);
+
+        copied_items_div.innerHTML = '';
+
+        const filteredItems = copiedItems.filter(itemObject => { // Renamed 'value' to 'itemObject' for clarity
+            const actualValue = itemObject.value; // Get the actual string value
             if (currentFilter === 'all') {
-                return true; // Show all items
+                return true;
             } else if (currentFilter === 'text') {
-                return !value.includes('<img'); // Show only text items
+                return !actualValue.includes('<img'); // Use actualValue here
             } else if (currentFilter === 'image') {
-                return value.includes('<img'); // Show only image items
+                return actualValue.includes('<img'); // Use actualValue here
             }
-            return true; // Default to showing all if filter is unknown
+            return true;
         });
 
         if (filteredItems.length > 0) {
-            filteredItems.forEach(function(value, index) {
+            filteredItems.forEach(function(itemObject, displayIndex) {
+                const value = itemObject.value; // Assign the actual string value to 'value' for convenience inside the loop
+                const isPinned = itemObject.isPinned;
+
                 const copied_list = document.createElement('div');
                 copied_list.classList.add('copied-list');
-                copied_list.dataset.index = index;
+                const originalIndexInStorage = copiedItems.indexOf(itemObject);
+                copied_list.dataset.index = originalIndexInStorage;
                 copied_list.dataset.rawValue = value;
 
                 const contentElement = document.createElement('div');
-                if (value.includes('<img')) {
+                if (value.includes('<img')) { // This line is now correct because 'value' is the string
                     const imgdiv = document.createElement('div');
                     const tempDiv = document.createElement('div');
                     tempDiv.innerHTML = value;
                     const imgElement = tempDiv.querySelector('img');
 
                     if (imgElement) {
-                        imgdiv.innerHTML = `<h2>${index+1}:</h2>`;
+                        imgdiv.innerHTML = `<h2>${displayIndex+1}:</h2>`;
                         const displayedImg = document.createElement('img');
                         displayedImg.src = imgElement.src;
                         displayedImg.alt = imgElement.alt || 'Copied Image';
@@ -97,29 +169,78 @@ function checkCopiedItems() {
                         displayedImg.style.borderRadius = '25px';
                         imgdiv.appendChild(displayedImg);
                     } else {
-                        imgdiv.innerHTML = `<h2>${index+1}:</h2>Image (HTML snippet)`;
+                        imgdiv.innerHTML = `<h2>${displayIndex+1}:</h2>Image (HTML snippet)`;
                     }
                     contentElement.appendChild(imgdiv);
 
                 } else {
                     const copiedText = document.createElement('h2');
-                    copiedText.textContent = `${index + 1}: ${value}`;
+                    copiedText.textContent = `${displayIndex + 1}: ${value}`;
                     contentElement.appendChild(copiedText);
                 }
                 copied_list.appendChild(contentElement);
 
+                const itemDropdown = document.createElement('div');
+                itemDropdown.classList.add('item-dropdown');
+
+                const menuButton = document.createElement('div');
+                menuButton.classList.add('button-style', 'item-menu-button');
+                menuButton.innerHTML = `
+                <span class="material-symbols-outlined">
+                    more_vert
+                </span>`;
+                itemDropdown.appendChild(menuButton);
+
+                const dropdownContent = document.createElement('div');
+                dropdownContent.classList.add('item-dropdown-content');
+
                 const deleteButton = document.createElement('div');
-                deleteButton.classList.add('button-style', 'delete-button');
+                deleteButton.classList.add('button-style');
                 deleteButton.innerHTML = `
                     <span class="material-symbols-outlined">
-                        close
+                        delete
                     </span>
                 `;
                 deleteButton.addEventListener('click', (event) => {
                     event.stopPropagation();
-                    handleDeleteItem(index);
+                    handleDeleteItem(originalIndexInStorage);
                 });
-                copied_list.appendChild(deleteButton);
+
+                const pinToggleButton = document.createElement('div');
+                pinToggleButton.classList.add('button-style');
+                if (isPinned) {
+                    copied_list.style.border = '2px solid var(--accent-color)';
+                    pinToggleButton.classList.add('is-pinned');
+                    pinToggleButton.innerHTML = `
+                        <span class="material-symbols-outlined">
+                            keep_off
+                        </span>
+                    `;
+                } else {
+                    pinToggleButton.innerHTML = `
+                        <span class="material-symbols-outlined">
+                            keep
+                        </span>
+                    `;
+                }
+                pinToggleButton.addEventListener('click', () => {
+                    togglePinStatus(originalIndexInStorage);
+                });
+
+                dropdownContent.appendChild(pinToggleButton);
+                dropdownContent.appendChild(deleteButton);
+                itemDropdown.appendChild(dropdownContent);
+                copied_list.appendChild(itemDropdown);
+
+                menuButton.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    document.querySelectorAll('.item-dropdown-content.show-item-dropdown').forEach(openDropdown => {
+                        if (openDropdown !== dropdownContent) {
+                            openDropdown.classList.remove('show-item-dropdown');
+                        }
+                    });
+                    dropdownContent.classList.toggle('show-item-dropdown');
+                });
 
                 copied_items_div.appendChild(copied_list);
             });
@@ -137,6 +258,18 @@ function checkCopiedItems() {
         }
     });
 }
+
+// Function to close all open item dropdowns when clicking anywhere else on the document
+document.addEventListener('click', (event) => {
+    const openDropdowns = document.querySelectorAll('.item-dropdown-content.show-item-dropdown');
+    openDropdowns.forEach(dropdown => {
+        const parentDropdownContainer = dropdown.closest('.item-dropdown');
+        if (parentDropdownContainer && !parentDropdownContainer.contains(event.target)) {
+            dropdown.classList.remove('show-item-dropdown');
+        }
+    });
+});
+
 
 /**
  * Handles clicks on the filter buttons.
@@ -206,26 +339,37 @@ async function checkClipboardType() {
     }
 }
 
-function handleDeleteItem(index) {
-    console.log('Deleting item at index:', index);
+// Adjusted handleDeleteItem to correctly use the originalIndex
+function handleDeleteItem(originalIndex) {
+    console.log('Deleting item at original index:', originalIndex);
     chrome.storage.sync.get('copiedItems', function(data) {
         const copiedItems = data.copiedItems || [];
-        const updatedItems = copiedItems.filter((_, i) => i !== index);
+        // Filter based on the original index
+        const updatedItems = copiedItems.filter((_, i) => i !== originalIndex);
+
         chrome.storage.sync.set({ 'copiedItems': updatedItems }, function() {
             if (chrome.runtime.lastError) {
                 console.error('Error updating storage after deletion:', chrome.runtime.lastError);
             } else {
                 console.log('Item deleted and storage updated.');
-                checkCopiedItems();
+                checkCopiedItems(); // Re-render the list
             }
         });
     });
 }
 
+
 async function handleCopiedItemClick(event) {
     const hoveredElement = event.target.closest('.copied-list');
     if (hoveredElement) {
+        // --- MODIFIED: Access value from dataset.rawValue ---
         const rawValue = hoveredElement.dataset.rawValue;
+
+        // Prevent opening dropdown if clicking on the dropdown 'M' button or delete button
+        // --- MODIFIED: Added pin button class to the condition ---
+        if (event.target.closest('.item-dropdown') || event.target.closest('.item-delete-button') || event.target.closest('.item-pin-button')) {
+            return;
+        }
 
         if (rawValue.includes('<img')) {
             const tempDiv = document.createElement('div');
@@ -253,6 +397,7 @@ async function handleCopiedItemClick(event) {
                         showAlert('Failed to copy image, copied HTML instead.');
                     } catch (textCopyError) {
                         console.error('Also failed to copy HTML:', textCopyError);
+                        showAlert('Failed to copy HTML.');
                     }
                 }
             } else {
@@ -266,19 +411,24 @@ async function handleCopiedItemClick(event) {
             }
         } else {
             if (isValidUrl(rawValue)) {
-                document.addEventListener('keydown', (event) => {
-                    if (event.ctrlKey) {
-                        try {
-                            chrome.tabs.create({ url: rawValue, active: true }, (newTab) => {
-                                console.log('Opened new tab with ID:', newTab.id, 'and URL:', newTab.url);
-                                // Optional: You can do something with the newTab object here
-                            });
-                        } catch (error) {
-                            console.error('Failed to open URL:', error);
-                            showAlert('Failed to open URL.');
-                        }
+                if (event.ctrlKey) {
+                    try {
+                        chrome.tabs.create({ url: rawValue, active: true }, (newTab) => {
+                            console.log('Opened new tab with ID:', newTab.id, 'and URL:', newTab.url);
+                        });
+                    } catch (error) {
+                        console.error('Failed to open URL:', error);
+                        showAlert('Failed to open URL.');
                     }
-                });
+                } else {
+                    try {
+                        await navigator.clipboard.writeText(rawValue);
+                        showAlert(`Text '${rawValue.substring(0, 50)}...' copied to clipboard.`);
+                    } catch (error) {
+                        console.error('Failed to copy text:', error);
+                        showAlert('Failed to copy text.');
+                    }
+                }
             } else {
                 try {
                     await navigator.clipboard.writeText(rawValue);
@@ -292,19 +442,39 @@ async function handleCopiedItemClick(event) {
     }
 }
 
+
 async function handleAddText(value) {
     try {
         chrome.storage.sync.get('copiedItems', function(data) {
-            const copiedItems = data.copiedItems || [];
-            copiedItems.unshift(value);
+            let copiedItems = data.copiedItems || [];
 
-            chrome.storage.sync.set({ 'copiedItems': copiedItems }, function() {
+            // Add this filter to clean up potential bad data before processing
+            copiedItems = copiedItems.filter(item => item && typeof item === 'object' && item.value !== undefined && item.timestamp !== undefined);
+
+
+            const newItem = { value: value, isPinned: false, timestamp: Date.now() }; // Add timestamp
+            
+            const pinnedItems = copiedItems.filter(item => item.isPinned);
+            let unpinnedItems = copiedItems.filter(item => !item.isPinned);
+
+            unpinnedItems.push(newItem); // Add new item to the end of unpinned
+
+            unpinnedItems.sort((a, b) => b.timestamp - a.timestamp); // Sort unpinned
+
+            const updatedItems = pinnedItems.concat(unpinnedItems);
+
+            const MAX_ITEMS = 50;
+            if (updatedItems.length > MAX_ITEMS) {
+                updatedItems = updatedItems.slice(0, MAX_ITEMS);
+            }
+
+            chrome.storage.sync.set({ 'copiedItems': updatedItems }, function() {
                 console.log('Text added and saved:', value);
                 checkCopiedItems();
             });
         });
     } catch (error) {
-        console.error('Failed to read clipboard:', error);
+        console.error('Failed to add text:', error);
     }
 }
 
@@ -393,10 +563,29 @@ async function pasteTextFromClipboard() {
     try {
         const pastedText = await navigator.clipboard.readText();
         chrome.storage.sync.get('copiedItems', function(data) {
-            const copiedItems = data.copiedItems || [];
-            copiedItems.unshift(pastedText);
+            let copiedItems = data.copiedItems || [];
 
-            chrome.storage.sync.set({ 'copiedItems': copiedItems }, function() {
+            // Add this filter to clean up potential bad data before processing
+            copiedItems = copiedItems.filter(item => item && typeof item === 'object' && item.value !== undefined && item.timestamp !== undefined);
+
+
+            const newItem = { value: pastedText, isPinned: false, timestamp: Date.now() }; // Add timestamp
+
+            const pinnedItems = copiedItems.filter(item => item.isPinned);
+            let unpinnedItems = copiedItems.filter(item => !item.isPinned);
+
+            unpinnedItems.push(newItem); // Add new item to the end of unpinned
+
+            unpinnedItems.sort((a, b) => b.timestamp - a.timestamp); // Sort unpinned
+
+            const updatedItems = pinnedItems.concat(unpinnedItems);
+
+            const MAX_ITEMS = 50;
+            if (updatedItems.length > MAX_ITEMS) {
+                updatedItems = updatedItems.slice(0, MAX_ITEMS);
+            }
+
+            chrome.storage.sync.set({ 'copiedItems': updatedItems }, function() {
                 console.log('Text pasted and saved:', pastedText);
                 checkCopiedItems();
             });
@@ -425,9 +614,29 @@ function clearAllText() {
 
 async function pasteItem(itemValue) {
     chrome.storage.sync.get('copiedItems', function(data) {
-        const copiedItems = data.copiedItems || [];
-        copiedItems.unshift(itemValue);
-        chrome.storage.sync.set({ 'copiedItems': copiedItems }, function() {
+        let copiedItems = data.copiedItems || [];
+
+        // Add this filter to clean up potential bad data before processing
+        copiedItems = copiedItems.filter(item => item && typeof item === 'object' && item.value !== undefined && item.timestamp !== undefined);
+
+
+        const newItem = { value: itemValue, isPinned: false, timestamp: Date.now() }; // Add timestamp
+
+        const pinnedItems = copiedItems.filter(item => item.isPinned);
+        let unpinnedItems = copiedItems.filter(item => !item.isPinned);
+
+        unpinnedItems.push(newItem); // Add new item to the end of unpinned
+
+        unpinnedItems.sort((a, b) => b.timestamp - a.timestamp); // Sort unpinned
+
+        const updatedItems = pinnedItems.concat(unpinnedItems);
+
+        const MAX_ITEMS = 50;
+        if (updatedItems.length > MAX_ITEMS) {
+            updatedItems = updatedItems.slice(0, MAX_ITEMS);
+        }
+
+        chrome.storage.sync.set({ 'copiedItems': updatedItems }, function() {
             console.log('Item pasted and saved:', itemValue);
             checkCopiedItems();
         });
@@ -468,11 +677,11 @@ document.addEventListener('DOMContentLoaded', function() {
     openSettings();
     retrieveTheme();
     updateActionButtonsPosition();
-    checkCopiedItems();
+    checkCopiedItems(); // This will now render the new dropdowns on each item
     displayFooterText();
     pasteTextEventListener();
     addTextEventListener();
-    clearAllText();
+    clearAllText(); // Keep this for the global Clear All button
 
     // Add event listeners for the filter buttons
     const filterTextButton = document.getElementById('filter-text');
