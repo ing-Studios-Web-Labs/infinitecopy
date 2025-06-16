@@ -5,13 +5,39 @@ async function pasteToStorage(pastedText, sourceUrl = "Unknown Source") {
         const data = await chrome.storage.sync.get("copiedItems");
         let copiedItems = data.copiedItems || [];
 
-        copiedItems.unshift(pastedText);
+        // Filter out any potentially malformed items (null, undefined, or missing 'value' property)
+        // before processing to maintain data integrity.
+        copiedItems = copiedItems.filter(item => item && typeof item === 'object' && item.value !== undefined && item.timestamp !== undefined);
+
+        // Create the new item as an object with isPinned: false and a timestamp
+        const newItem = {
+            value: pastedText,
+            isPinned: false, // Newly pasted items are unpinned by default
+            timestamp: Date.now() // Add this line!
+        };
+
+        // Add the new item to the beginning of the unpinned section.
+        // First, separate pinned and unpinned items.
+        const pinnedItems = copiedItems.filter(item => item.isPinned);
+        let unpinnedItems = copiedItems.filter(item => !item.isPinned); // Use 'let' for sorting
+
+        // Add the new item to the beginning of the unpinned items.
+        unpinnedItems.push(newItem); // Add new item to the end of the unpinned items, will be sorted below
+
+        // Sort the unpinned items by timestamp (newest first)
+        unpinnedItems.sort((a, b) => b.timestamp - a.timestamp);
+
+        // Recombine the arrays: pinned items first, then unpinned.
+        let updatedItems = pinnedItems.concat(unpinnedItems);
+
         const MAX_ITEMS = 50;
-        if (copiedItems.length > MAX_ITEMS) {
-            copiedItems = copiedItems.slice(0, MAX_ITEMS);
+        if (updatedItems.length > MAX_ITEMS) {
+            // If the total exceeds MAX_ITEMS, trim from the end of the unpinned items.
+            // This assumes pinned items are always prioritized.
+            updatedItems = updatedItems.slice(0, MAX_ITEMS);
         }
 
-        await chrome.storage.sync.set({ copiedItems });
+        await chrome.storage.sync.set({ 'copiedItems': updatedItems });
 
         chrome.notifications.create({
             type: "basic",
@@ -107,6 +133,66 @@ chrome.runtime.onInstalled.addListener(() => {
         contexts: ["image"]
     });
     setIcon();
+});
+
+async function migrateDataFormat() {
+    console.log("Checking for data migration...");
+
+    try {
+        const data = await chrome.storage.sync.get("copiedItems");
+        let rawCopiedItems = data.copiedItems || [];
+
+        let needsMigration = false;
+        let normalizedCopiedItems = rawCopiedItems.map(item => {
+            if (typeof item === 'string') {
+                // Old plain text item detected, needs migration
+                needsMigration = true;
+                return {
+                    value: item,
+                    isPinned: false, // Default old items to unpinned
+                    timestamp: Date.now() // Assign current timestamp
+                };
+            } else if (item && typeof item === 'object') {
+                // Already an object, but check if required properties are missing (e.g., timestamp)
+                if (item.value === undefined || item.isPinned === undefined || item.timestamp === undefined) {
+                    console.warn("Item missing expected properties, normalizing:", item);
+                    needsMigration = true; // Mark as needing migration/normalization
+                    return {
+                        value: item.value || '', // Ensure value exists
+                        isPinned: typeof item.isPinned === 'boolean' ? item.isPinned : false, // Ensure boolean
+                        timestamp: item.timestamp || Date.now() // Ensure timestamp
+                    };
+                }
+                return item; // Already in the correct format
+            } else {
+                // Malformed data (null, undefined, or unexpected type)
+                needsMigration = true; // Mark as needing cleanup
+                return null; // Mark for filtering out
+            }
+        }).filter(item => item !== null); // Remove any items that were nullified
+
+        if (needsMigration) {
+            console.log("Migrating data format...");
+            await chrome.storage.sync.set({ 'copiedItems': normalizedCopiedItems });
+            console.log("Data migration complete.");
+            // Optionally, you might trigger a UI refresh if the popup is open
+            // chrome.runtime.sendMessage({ action: "refreshUI" });
+        } else {
+            console.log("No data migration needed.");
+        }
+
+    } catch (error) {
+        console.error("Error during data migration:", error);
+    }
+}
+
+// 2. Call the migration function on extension install/update
+
+chrome.runtime.onInstalled.addListener(async (details) => {
+    if (details.reason === 'install' || details.reason === 'update') {
+        // Run migration logic when the extension is installed or updated
+        await migrateDataFormat();
+    }
 });
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
