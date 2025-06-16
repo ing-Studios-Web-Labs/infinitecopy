@@ -96,15 +96,18 @@ button:hover {
     width: 40px;
     height: 40px;
     border-radius: 20px;
+    transition: border-radius 0.2s ease-in-out;
 }
 
 .button-style:hover {
     background-color: var(--primary-dark);
+    border-radius: 10px;
     cursor: pointer;
 }
 
 .button-style:active {
     background-color: var(--primary-darkest);
+    border-radius: 10px;
 }
 
 #footer-text {
@@ -205,6 +208,14 @@ button:hover {
 }
 
 #export-data-btn {
+    gap: 5px;
+    color: #ffffff;
+    width: fit-content;
+    padding-left: 5px;
+    padding-right: 5px;
+}
+
+#open-source-code {
     gap: 5px;
     color: #ffffff;
     width: fit-content;
