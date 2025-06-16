@@ -296,10 +296,27 @@ function changeFavicon(color) {
     pageFavicon.href = `../assets/logo_${color}.ico`;
 }
 
+function openSourceCode() {
+    const openSourceCodeBtn = document.getElementById('open-source-code');
+    openSourceCodeBtn.addEventListener('click', () => {
+        const linkURL = 'https://github.com/ing-studios-web-labs/infinitecopy'
+        try {
+            chrome.tabs.create({ url: linkURL, active: true }, (newTab) => {
+                console.log('Opened new tab with ID:', newTab.id, 'and URL:', newTab.url);
+                // Optional: You can do something with the newTab object here
+            });
+        } catch (error) {
+            console.error('Failed to open URL:', error);
+            showAlert('Failed to open URL.');
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     retrieveTheme();
     displayFooterText();
     getHoveredColor();
     changeTheme();
     exportAllStorageDataToJson();
+    openSourceCode();
 });
