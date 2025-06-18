@@ -7,7 +7,6 @@ Infinite Copy is a Chrome Extension that allows you to copy anything you want an
 4. **Patch from 1.4.1: GitHub image bug fixed**
 # Known Bugs 🐞
 1. **Dynamic action bar in the way of last copied item**
-2. **GitHub logo not loading correctly in the Settings page**
 
 Feel free to drop a comment or a suggestion if there are any bugs/feedback [here](https://docs.google.com/forms/d/e/1FAIpQLSeqvyz_kWR0zs3ZG-kkQbMTvkMQ2Mu7tZ_3aXbYybqnciVV5A/viewform?usp=header) or create an issue [here](https://github.com/ingStudiosOfficial/infinitecopy/issues/new)!
 # Work In Progress ⚒️
