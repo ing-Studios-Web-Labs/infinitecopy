@@ -132,41 +132,43 @@ function changeTheme() {
 function showAlert(textData, inputData = null) {
     console.log(`inputData is:`, inputData);
     if (inputData != null) {
-        console.log(`'if' is called!`);
-        const container = document.getElementById('alert-container');
-        if (!container) {
-            console.error("Error: 'alert-container' element not found.");
-            return;
-        }
-        const alertDiv = document.createElement('div');
-        alertDiv.classList.add('copy-alert');
-        const inputPrompt = document.createElement('p');
-        inputPrompt.textContent = textData;
-        alertDiv.appendChild(inputPrompt);
-
-        const inputElement = document.createElement('input');
-        inputElement.classList.add('input-text-input');
-
-        alertDiv.appendChild(inputElement);
-        container.appendChild(alertDiv);
-        setTimeout(() => {
-            alertDiv.classList.add('show-alert');
-        }, 50);
-        inputElement.focus();
-        inputElement.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-
-                const inputValue = inputElement.value;
-                handleAddText(inputValue);
-
-                alertDiv.classList.remove('show-alert');
-                alertDiv.classList.add('fade-out');
-                setTimeout(function() {
-                    container.removeChild(alertDiv);
-                }, 500);
+        if (inputData == 'addText') {
+            console.log(`'if' is called!`);
+            const container = document.getElementById('alert-container');
+            if (!container) {
+                console.error("Error: 'alert-container' element not found.");
+                return;
             }
-        });
+            const alertDiv = document.createElement('div');
+            alertDiv.classList.add('copy-alert');
+            const inputPrompt = document.createElement('p');
+            inputPrompt.textContent = textData;
+            alertDiv.appendChild(inputPrompt);
+
+            const inputElement = document.createElement('input');
+            inputElement.classList.add('input-text-input');
+
+            alertDiv.appendChild(inputElement);
+            container.appendChild(alertDiv);
+            setTimeout(() => {
+                alertDiv.classList.add('show-alert');
+            }, 50);
+            inputElement.focus();
+            inputElement.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+
+                    const inputValue = inputElement.value;
+                    handleAddText(inputValue);
+
+                    alertDiv.classList.remove('show-alert');
+                    alertDiv.classList.add('fade-out');
+                    setTimeout(function() {
+                        container.removeChild(alertDiv);
+                    }, 500);
+                }
+            });
+        }
     } else {
         console.log(`'else' is called!`);
         const container = document.getElementById('alert-container');
@@ -223,29 +225,6 @@ async function exportAllStorageDataToJson() {
             // Optional: You can now remove specific properties from dataToExport if desired
             // For example, if 'extensionTheme' is sensitive or not for export:
             // delete dataToExport.extensionTheme;
-
-            // Optional: Modify specific items like 'copiedItems' if needed (as in previous examples)
-            if (dataToExport.copiedItems && Array.isArray(dataToExport.copiedItems)) {
-                dataToExport.copiedItems = dataToExport.copiedItems.map((item, index) => {
-                    if (typeof item === 'string' && item.includes('<img')) {
-                        const tempDiv = document.createElement('div');
-                        tempDiv.innerHTML = item;
-                        const imgElement = tempDiv.querySelector('img');
-                        return {
-                            id: `item_${index}`,
-                            type: 'image_url',
-                            content: imgElement ? imgElement.src : 'No valid image src found',
-                            originalHtml: item.substring(0, 200) + (item.length > 200 ? '...' : '')
-                        };
-                    } else {
-                        return {
-                            id: `item_${index}`,
-                            type: 'text',
-                            content: item
-                        };
-                    }
-                });
-            }
 
 
             // --- End Modification ---
