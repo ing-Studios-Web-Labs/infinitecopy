@@ -97,6 +97,13 @@ async function togglePinStatus(originalIndex) {
 
                 // 4. Recombine the arrays: pinned items first, then chronologically sorted unpinned items
                 copiedItems = currentPinnedItems.concat(currentUnpinnedItems);
+                chrome.runtime.sendMessage({ action: "refreshPasteSubmenus" }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        console.error("Error sending message to background:", chrome.runtime.lastError.message);
+                    } else {
+                        console.log("Background response:", response);
+                    }
+                });
                 showAlert('Item successfully unpinned!');
             }
 
@@ -108,6 +115,13 @@ async function togglePinStatus(originalIndex) {
                 } else {
                     console.log('Item pin status toggled and storage updated.');
                     checkCopiedItems(); // Re-render the list
+                    chrome.runtime.sendMessage({ action: "refreshPasteSubmenus" }, (response) => {
+                        if (chrome.runtime.lastError) {
+                            console.error("Error sending message to background:", chrome.runtime.lastError.message);
+                        } else {
+                            console.log("Background response:", response);
+                        }
+                    });
                     return resolve();
                 }
             });
@@ -355,6 +369,13 @@ function handleDeleteItem(originalIndex) {
                 checkCopiedItems(); // Re-render the list
             }
         });
+        chrome.runtime.sendMessage({ action: "refreshPasteSubmenus" }, (response) => {
+                if (chrome.runtime.lastError) {
+                    console.error("Error sending message to background:", chrome.runtime.lastError.message);
+                } else {
+                    console.log("Background response:", response);
+                }
+        });
     });
 }
 
@@ -472,6 +493,13 @@ async function handleAddText(value) {
                 console.log('Text added and saved:', value);
                 checkCopiedItems();
             });
+            chrome.runtime.sendMessage({ action: "refreshPasteSubmenus" }, (response) => {
+                if (chrome.runtime.lastError) {
+                    console.error("Error sending message to background:", chrome.runtime.lastError.message);
+                } else {
+                    console.log("Background response:", response);
+                }
+            });
         });
     } catch (error) {
         console.error('Failed to add text:', error);
@@ -481,41 +509,43 @@ async function handleAddText(value) {
 function showAlert(textData, inputData = null) {
     console.log(`inputData is:`, inputData);
     if (inputData != null) {
-        console.log(`'if' is called!`);
-        const container = document.getElementById('alert-container');
-        if (!container) {
-            console.error("Error: 'alert-container' element not found.");
-            return;
-        }
-        const alertDiv = document.createElement('div');
-        alertDiv.classList.add('copy-alert');
-        const inputPrompt = document.createElement('p');
-        inputPrompt.textContent = textData;
-        alertDiv.appendChild(inputPrompt);
-
-        const inputElement = document.createElement('input');
-        inputElement.classList.add('input-text-input');
-
-        alertDiv.appendChild(inputElement);
-        container.appendChild(alertDiv);
-        setTimeout(() => {
-            alertDiv.classList.add('show-alert');
-        }, 50);
-        inputElement.focus();
-        inputElement.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-
-                const inputValue = inputElement.value;
-                handleAddText(inputValue);
-
-                alertDiv.classList.remove('show-alert');
-                alertDiv.classList.add('fade-out');
-                setTimeout(function() {
-                    container.removeChild(alertDiv);
-                }, 500);
+        if (inputData == 'addText') {
+            console.log(`'if' is called!`);
+            const container = document.getElementById('alert-container');
+            if (!container) {
+                console.error("Error: 'alert-container' element not found.");
+                return;
             }
-        });
+            const alertDiv = document.createElement('div');
+            alertDiv.classList.add('copy-alert');
+            const inputPrompt = document.createElement('p');
+            inputPrompt.textContent = textData;
+            alertDiv.appendChild(inputPrompt);
+
+            const inputElement = document.createElement('input');
+            inputElement.classList.add('input-text-input');
+
+            alertDiv.appendChild(inputElement);
+            container.appendChild(alertDiv);
+            setTimeout(() => {
+                alertDiv.classList.add('show-alert');
+            }, 50);
+            inputElement.focus();
+            inputElement.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+
+                    const inputValue = inputElement.value;
+                    handleAddText(inputValue);
+
+                    alertDiv.classList.remove('show-alert');
+                    alertDiv.classList.add('fade-out');
+                    setTimeout(function() {
+                        container.removeChild(alertDiv);
+                    }, 500);
+                }
+            });
+        }
     } else {
         console.log(`'else' is called!`);
         const container = document.getElementById('alert-container');
@@ -589,6 +619,13 @@ async function pasteTextFromClipboard() {
                 console.log('Text pasted and saved:', pastedText);
                 checkCopiedItems();
             });
+            chrome.runtime.sendMessage({ action: "refreshPasteSubmenus" }, (response) => {
+                if (chrome.runtime.lastError) {
+                    console.error("Error sending message to background:", chrome.runtime.lastError.message);
+                } else {
+                    console.log("Background response:", response);
+                }
+            });
         });
     } catch (error) {
         console.error('Failed to read clipboard:', error);
@@ -598,7 +635,7 @@ async function pasteTextFromClipboard() {
 function addTextEventListener() {
     const addTextBtn = document.getElementById('add-text-btn');
     addTextBtn.addEventListener('click', () => {
-        showAlert('What would you like to input?', true);
+        showAlert('What would you like to input?', 'addText');
     });
 }
 
@@ -639,6 +676,13 @@ async function pasteItem(itemValue) {
         chrome.storage.sync.set({ 'copiedItems': updatedItems }, function() {
             console.log('Item pasted and saved:', itemValue);
             checkCopiedItems();
+        });
+        chrome.runtime.sendMessage({ action: "refreshPasteSubmenus" }, (response) => {
+                if (chrome.runtime.lastError) {
+                    console.error("Error sending message to background:", chrome.runtime.lastError.message);
+                } else {
+                    console.log("Background response:", response);
+                }
         });
     });
 }
