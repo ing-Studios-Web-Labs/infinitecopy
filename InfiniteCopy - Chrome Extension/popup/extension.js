@@ -56,77 +56,92 @@ function isValidUrl(urlString) {
 // --- MODIFIED: togglePinStatus to re-insert based on timestamp ---
 async function togglePinStatus(originalIndex) {
     console.log('Toggling pin status for item at original index:', originalIndex);
-    return new Promise((resolve, reject) => {
-        chrome.storage.sync.get('copiedItems', function(data) {
-            let copiedItems = data.copiedItems || [];
 
-            // Add this filter to clean up potential bad data before processing
-            copiedItems = copiedItems.filter(item => item && typeof item === 'object' && item.value !== undefined && item.timestamp !== undefined);
+    try {
+        const data = await chrome.storage.sync.get('copiedItems');
+        let copiedItems = data.copiedItems || [];
 
-
-            if (originalIndex < 0 || originalIndex >= copiedItems.length) {
-                console.error('Invalid index provided for toggling pin status:', originalIndex);
-                showAlert('Error: Invalid item index.');
-                return reject('Invalid index');
+        // --- CRITICAL FIX START ---
+        // Step 1: Ensure all items have an 'id'. This handles old data formats.
+        copiedItems = copiedItems.map(item => {
+            if (item && typeof item === 'object' && item.value !== undefined && item.timestamp !== undefined && item.id === undefined) {
+                // If 'id' is missing, assign a new one.
+                // Using item.timestamp or Date.now() for the base, plus a random suffix for uniqueness.
+                return { ...item, id: `${item.timestamp || Date.now()}_${Math.random().toString(36).substring(2, 8)}` };
             }
-
-            const itemToToggle = copiedItems[originalIndex];
-            const isCurrentlyPinned = itemToToggle.isPinned;
-
-            // Update the pin status
-            itemToToggle.isPinned = !isCurrentlyPinned;
-
-            // Remove the item from its current position
-            copiedItems.splice(originalIndex, 1);
-
-            if (itemToToggle.isPinned) {
-                // If pinning, add it to the beginning of the array
-                copiedItems.unshift(itemToToggle);
-                showAlert('Item successfully pinned!');
-            } else {
-                // If unpinning, re-insert it into its chronological position among unpinned items.
-                // 1. Separate existing pinned and unpinned items
-                const currentPinnedItems = copiedItems.filter(item => item.isPinned);
-                let currentUnpinnedItems = copiedItems.filter(item => !item.isPinned);
-
-                // 2. Add the itemToToggle (now unpinned) to the unpinned array
-                currentUnpinnedItems.push(itemToToggle);
-
-                // 3. Sort the unpinned items by timestamp to maintain chronological order
-                currentUnpinnedItems.sort((a, b) => b.timestamp - a.timestamp); // Newest first for unpinned
-
-                // 4. Recombine the arrays: pinned items first, then chronologically sorted unpinned items
-                copiedItems = currentPinnedItems.concat(currentUnpinnedItems);
-                chrome.runtime.sendMessage({ action: "refreshPasteSubmenus" }, (response) => {
-                    if (chrome.runtime.lastError) {
-                        console.error("Error sending message to background:", chrome.runtime.lastError.message);
-                    } else {
-                        console.log("Background response:", response);
-                    }
-                });
-                showAlert('Item successfully unpinned!');
-            }
-
-            chrome.storage.sync.set({ 'copiedItems': copiedItems }, function() {
-                if (chrome.runtime.lastError) {
-                    console.error('Error updating storage after toggling pin status:', chrome.runtime.lastError);
-                    showAlert('Error updating storage.');
-                    return reject(chrome.runtime.lastError);
-                } else {
-                    console.log('Item pin status toggled and storage updated.');
-                    checkCopiedItems(); // Re-render the list
-                    chrome.runtime.sendMessage({ action: "refreshPasteSubmenus" }, (response) => {
-                        if (chrome.runtime.lastError) {
-                            console.error("Error sending message to background:", chrome.runtime.lastError.message);
-                        } else {
-                            console.log("Background response:", response);
-                        }
-                    });
-                    return resolve();
-                }
-            });
+            return item; // Return item as is if it's already good or null/undefined (to be filtered later)
         });
-    });
+
+        // Step 2: Now, filter out any truly invalid or malformed items *after* attempting to add an 'id'.
+        copiedItems = copiedItems.filter(item =>
+            item && typeof item === 'object' &&
+            item.value !== undefined &&
+            item.timestamp !== undefined &&
+            item.id !== undefined // Ensure it has an ID after the map operation
+        );
+        // --- CRITICAL FIX END ---
+
+        // Log the state of copiedItems after normalization and filtering for debugging
+        console.log('copiedItems after normalization and filtering:', copiedItems);
+
+        if (originalIndex < 0 || originalIndex >= copiedItems.length) {
+            console.error('Invalid index provided for toggling pin status. Current copiedItems.length:', copiedItems.length, 'Original index requested:', originalIndex);
+            showAlert('Error: Invalid item index. The list might have changed.');
+            throw new Error('Invalid index');
+        }
+
+        const itemToToggle = copiedItems[originalIndex];
+        const isCurrentlyPinned = itemToToggle.isPinned;
+
+        // Update the pin status
+        itemToToggle.isPinned = !isCurrentlyPinned;
+
+        // Remove the item from its current position
+        copiedItems.splice(originalIndex, 1);
+
+        if (itemToToggle.isPinned) {
+            // If pinning, add it to the beginning of the array
+            copiedItems.unshift(itemToToggle);
+            showAlert('Item successfully pinned!');
+        } else {
+            // If unpinning, re-insert it into its chronological position among unpinned items.
+            const currentPinnedItems = copiedItems.filter(item => item.isPinned);
+            let currentUnpinnedItems = copiedItems.filter(item => !item.isPinned);
+
+            // Add the itemToToggle (now unpinned) to the unpinned array
+            currentUnpinnedItems.push(itemToToggle);
+
+            // Sort the unpinned items by timestamp to maintain chronological order
+            currentUnpinnedItems.sort((a, b) => b.timestamp - a.timestamp); // Newest first for unpinned
+
+            // Recombine the arrays: pinned items first, then chronologically sorted unpinned items
+            copiedItems = currentPinnedItems.concat(currentUnpinnedItems);
+            showAlert('Item successfully unpinned!');
+        }
+
+        // <<< CRITICAL FIX from previous round: AWAIT the storage.sync.set call
+        await chrome.storage.sync.set({ 'copiedItems': copiedItems });
+        console.log('Item pin status toggled and storage updated.');
+
+        // Re-render the list in the popup UI
+        checkCopiedItems();
+
+        // <<< CRITICAL FIX from previous round: Send message to background script *only once* and *after* storage is updated
+        chrome.runtime.sendMessage({ action: "refreshPasteSubmenus" }, (response) => {
+            if (chrome.runtime.lastError) {
+                console.error("Error sending message to background to refresh menus:", chrome.runtime.lastError.message);
+            } else {
+                console.log("Background response for menu refresh:", response);
+            }
+        });
+
+        return true; // Resolve the async function successfully
+
+    } catch (error) {
+        console.error('Error during pin status toggle:', error);
+        showAlert('An error occurred during pin status toggle.');
+        return false; // Indicate failure for the async function
+    }
 }
 
 function checkCopiedItems() {
@@ -379,64 +394,125 @@ function handleDeleteItem(originalIndex) {
     });
 }
 
+async function getImageAsPngBlob(rawValue) {
+    let imageUrl = '';
+    let isSVGString = false;
+
+    // Check if rawValue is an <img> tag with a src
+    if (rawValue.includes('<img')) {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = rawValue;
+        const imgElement = tempDiv.querySelector('img');
+        if (imgElement && imgElement.src) {
+            imageUrl = imgElement.src;
+        } else {
+            return null; // No valid image source found in the HTML
+        }
+    } else if (rawValue.trim().startsWith('<svg')) {
+        // If it's a raw SVG string
+        isSVGString = true;
+        imageUrl = 'data:image/svg+xml;base64,' + btoa(rawValue); // Convert SVG string to data URL
+    } else {
+        // Assume rawValue might be a direct image URL
+        imageUrl = rawValue;
+    }
+
+    if (!imageUrl) {
+        return null;
+    }
+
+    try {
+        let response = await fetch(imageUrl);
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch image: ${response.statusText}`);
+        }
+
+        const imageBlob = await response.blob();
+        const imageType = imageBlob.type;
+
+        // If it's already a PNG, return it directly
+        if (imageType === 'image/png') {
+            return imageBlob;
+        }
+
+        // Create an Image element to load the image
+        const img = new Image();
+        const objectURL = URL.createObjectURL(imageBlob);
+        img.src = objectURL;
+
+        // Wait for the image to load
+        await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+        });
+
+        // Create a canvas to draw the image
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+
+        // Draw the image onto the canvas
+        ctx.drawImage(img, 0, 0);
+
+        // Revoke the object URL to free up memory
+        URL.revokeObjectURL(objectURL);
+
+        // Convert the canvas content to a PNG blob
+        return new Promise(resolve => {
+            canvas.toBlob(blob => {
+                resolve(blob);
+            }, 'image/png');
+        });
+
+    } catch (error) {
+        console.error('Error converting image to PNG:', error);
+        return null;
+    }
+}
 
 async function handleCopiedItemClick(event) {
     const hoveredElement = event.target.closest('.copied-list');
     if (hoveredElement) {
-        // --- MODIFIED: Access value from dataset.rawValue ---
         const rawValue = hoveredElement.dataset.rawValue;
 
         // Prevent opening dropdown if clicking on the dropdown 'M' button or delete button
-        // --- MODIFIED: Added pin button class to the condition ---
         if (event.target.closest('.item-dropdown') || event.target.closest('.item-delete-button') || event.target.closest('.item-pin-button')) {
             return;
         }
 
-        if (rawValue.includes('<img')) {
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = rawValue;
-            const imgElement = tempDiv.querySelector('img');
+        // Attempt to get the image as a PNG blob
+        const pngBlob = await getImageAsPngBlob(rawValue);
 
-            if (imgElement && imgElement.src) {
-                try {
-                    const imageUrl = imgElement.src;
-                    const response = await fetch(imageUrl);
-                    if (!response.ok) {
-                        throw new Error(`Failed to fetch image: ${response.statusText}`);
-                    }
-                    const imageBlob = await response.blob();
-                    const clipboardItem = new ClipboardItem({
-                        [imageBlob.type]: imageBlob,
-                    });
-                    await navigator.clipboard.write([clipboardItem]);
-                    showAlert('Image copied to clipboard successfully!');
-                } catch (error) {
-                    console.error('Failed to copy image to clipboard:', error);
-                    showAlert(`Failed to copy image: ${error.message}. Check console for details.`);
-                    try {
-                        await navigator.clipboard.writeText(rawValue);
-                        showAlert('Failed to copy image, copied HTML instead.');
-                    } catch (textCopyError) {
-                        console.error('Also failed to copy HTML:', textCopyError);
-                        showAlert('Failed to copy HTML.');
-                    }
-                }
-            } else {
+        if (pngBlob) {
+            try {
+                const clipboardItem = new ClipboardItem({
+                    [pngBlob.type]: pngBlob,
+                });
+                await navigator.clipboard.write([clipboardItem]);
+                showAlert('Image copied to clipboard successfully as PNG!');
+            } catch (error) {
+                console.error('Failed to copy image to clipboard:', error);
+                showAlert(`Failed to copy image: ${error.message}. Attempting to copy HTML/text instead.`);
+                // Fallback to copying rawValue as text if image copy fails
                 try {
                     await navigator.clipboard.writeText(rawValue);
-                    showAlert('Image HTML copied to clipboard (no valid image source found).');
+                    showAlert('Failed to copy image, copied HTML/text instead.');
                 } catch (textCopyError) {
-                    console.error('Failed to copy HTML:', textCopyError);
-                    showAlert('Failed to copy HTML.');
+                    console.error('Also failed to copy HTML/text:', textCopyError);
+                    showAlert('Failed to copy HTML/text.');
                 }
             }
         } else {
+            // Handle cases where it's not an image or image conversion failed
             if (isValidUrl(rawValue)) {
                 if (event.ctrlKey) {
                     try {
                         chrome.tabs.create({ url: rawValue, active: true }, (newTab) => {
                             console.log('Opened new tab with ID:', newTab.id, 'and URL:', newTab.url);
                         });
+                        showAlert('URL opened in a new tab.');
                     } catch (error) {
                         console.error('Failed to open URL:', error);
                         showAlert('Failed to open URL.');
@@ -463,7 +539,6 @@ async function handleCopiedItemClick(event) {
     }
 }
 
-
 async function handleAddText(value) {
     try {
         chrome.storage.sync.get('copiedItems', function(data) {
@@ -473,7 +548,7 @@ async function handleAddText(value) {
             copiedItems = copiedItems.filter(item => item && typeof item === 'object' && item.value !== undefined && item.timestamp !== undefined);
 
 
-            const newItem = { value: value, isPinned: false, timestamp: Date.now() }; // Add timestamp
+            const newItem = { value: value, type: 'text', isPinned: false, timestamp: Date.now() }; // Add timestamp
             
             const pinnedItems = copiedItems.filter(item => item.isPinned);
             let unpinnedItems = copiedItems.filter(item => !item.isPinned);
@@ -599,7 +674,7 @@ async function pasteTextFromClipboard() {
             copiedItems = copiedItems.filter(item => item && typeof item === 'object' && item.value !== undefined && item.timestamp !== undefined);
 
 
-            const newItem = { value: pastedText, isPinned: false, timestamp: Date.now() }; // Add timestamp
+            const newItem = { value: pastedText, type: 'text',isPinned: false, timestamp: Date.now() }; // Add timestamp
 
             const pinnedItems = copiedItems.filter(item => item.isPinned);
             let unpinnedItems = copiedItems.filter(item => !item.isPinned);
@@ -657,7 +732,7 @@ async function pasteItem(itemValue) {
         copiedItems = copiedItems.filter(item => item && typeof item === 'object' && item.value !== undefined && item.timestamp !== undefined);
 
 
-        const newItem = { value: itemValue, isPinned: false, timestamp: Date.now() }; // Add timestamp
+        const newItem = { value: itemValue, type: 'image', isPinned: false, timestamp: Date.now() }; // Add timestamp
 
         const pinnedItems = copiedItems.filter(item => item.isPinned);
         let unpinnedItems = copiedItems.filter(item => !item.isPinned);
