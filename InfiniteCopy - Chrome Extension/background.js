@@ -1,7 +1,7 @@
 // background.js
 
 // Function to store pasted text into chrome.storage.sync
-async function pasteToStorage(pastedText, sourceUrl = "Unknown Source") {
+async function pasteToStorage(pastedText, sourceUrl = "Unknown Source", itemType) {
     try {
         const data = await chrome.storage.sync.get("copiedItems");
         let copiedItems = data.copiedItems || [];
@@ -13,6 +13,7 @@ async function pasteToStorage(pastedText, sourceUrl = "Unknown Source") {
         // Create the new item as an object with isPinned: false and a timestamp
         const newItem = {
             value: pastedText,
+            type: itemType,
             isPinned: false, // Newly pasted items are unpinned by default
             timestamp: Date.now()
         };
@@ -318,7 +319,7 @@ async function refreshPasteSubmenus() {
             }
 
             const itemId = `paste_item_${item.timestamp}`;
-            const titlePrefix = item.isPinned ? "📌 Paste: " : "Paste: ";
+            const titlePrefix = item.isPinned ? "📌 " : "";
 
             chrome.contextMenus.create({
                 id: itemId,
@@ -462,12 +463,12 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
     // Handle clicks on static "Copy text" menu item.
     if (info.menuItemId === "copy_text" && info.selectionText) {
-        await pasteToStorage(info.selectionText, sourceUrl);
+        await pasteToStorage(info.selectionText, sourceUrl, 'text');
         await refreshPasteSubmenus(); // Refresh menus immediately after adding a new item.
     } 
     // Handle clicks on static "Copy link" menu item.
     else if (info.menuItemId === "copy_link" && info.linkUrl) {
-        await pasteToStorage(info.linkUrl, sourceUrl);
+        await pasteToStorage(info.linkUrl, sourceUrl, 'text');
         await refreshPasteSubmenus(); // Refresh menus immediately after adding a new item.
     } 
     // Handle clicks on static "Copy image" menu item.
@@ -486,7 +487,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
             const imageHTML = results[0]?.result; // Get the result from the executed script.
             if (imageHTML) {
-                await pasteToStorage(imageHTML, sourceUrl);
+                await pasteToStorage(imageHTML, sourceUrl, 'image');
                 await refreshPasteSubmenus(); // Refresh menus after adding a new item.
             } else {
                 // If image HTML could not be retrieved, alert the user.
