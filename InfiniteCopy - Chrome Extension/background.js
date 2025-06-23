@@ -396,6 +396,12 @@ async function handlePasteSubmenuClick(info, tab) {
                 }, () => {
                     if (chrome.runtime.lastError) {
                         console.error("Error executing script for paste:", chrome.runtime.lastError.message);
+                        chrome.notifications.create({
+                            type: "basic",
+                            iconUrl: "/assets/logo_blue.png",
+                            title: "Paste Error",
+                            message: `Error from Chrome: ${chrome.runtime.lastError.message}`
+                        });
                     }
                 });
             } else {
@@ -444,7 +450,7 @@ chrome.runtime.onStartup.addListener(async () => {
     console.log('Extension started up!');
     
     // Re-create static menus for robustness. Chrome will gracefully ignore if they already exist.
-    createStaticContextMenus(); 
+    createStaticContextMenus();
     
     // Set the extension's icon.
     setIcon();
