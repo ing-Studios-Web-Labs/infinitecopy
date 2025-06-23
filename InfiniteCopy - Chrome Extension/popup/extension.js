@@ -491,7 +491,7 @@ async function handleCopiedItemClick(event) {
                     [pngBlob.type]: pngBlob,
                 });
                 await navigator.clipboard.write([clipboardItem]);
-                showAlert('Image copied to clipboard successfully as PNG!');
+                showAlert('Image copied to clipboard successfully!');
             } catch (error) {
                 console.error('Failed to copy image to clipboard:', error);
                 showAlert(`Failed to copy image: ${error.message}. Attempting to copy HTML/text instead.`);
