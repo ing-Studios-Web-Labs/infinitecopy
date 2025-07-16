@@ -1,0 +1,342 @@
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap');
+:root {
+    /* Define your blueish theme colors */
+    --primary-color: #2196F3; /* A standard Material Blue 500 */
+    --primary-light: #64B5F6; /* Material Blue 300 */
+    --primary-dark: #1976D2; /* Material Blue 700 */
+    --primary-darkest: #0D47A1; /* Material Blue 900 */
+    --secondary-color: #03A9F4; /* A complementary light blue */
+    --text-primary: #212121; /* Dark grey for primary text */
+    --text-secondary: #757575; /* Medium grey for secondary text */
+    --background-color: #E3F2FD; /* A very light blue for background */
+    --surface-color: #FFFFFF; /* White for surfaces like cards */
+    --accent-color: #FFC107; /* A contrasting accent color (amber) */
+}
+
+html,body {
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Google Sans'; /* Consider a Material Design font like Google Sans */
+    background-color: var(--background-color);
+    color: var(--text-primary);
+    transition: background-color ease 0.4s;
+}
+
+header {
+    background-color: var(--primary-color);
+    color: var(--surface-color); /* White text on blue header */
+    padding-left: 10px; /* Adjust padding as needed */
+    display: flex;
+    align-items: center; /* Vertically align header elements */
+    z-index: 100;
+    transition: background-color ease 0.4s;
+}
+
+.header-element {
+    margin-left: 10px;
+    margin-right: 10px;
+}
+
+.material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-variation-settings:
+        'FILL' 0,
+        'wght' 400,
+        'GRAD' 0,
+        'opsz' 24;
+    color: #ffffff; /* Use a secondary text color for icons */
+}
+
+/* Example styling for other elements using the theme */
+main {
+    padding-left: 10px;
+}
+
+section {
+    margin-bottom: 24px;
+    background-color: var(--surface-color);
+    padding-left: 10px;
+    border-radius: 4px; /* Optional: Rounded corners for sections */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); /* Optional: Subtle shadow */
+}
+
+button {
+    background-color: var(--accent-color);
+    color: var(--text-primary);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #FFD54F; /* A slightly lighter shade of amber */
+}
+
+.mdc-switch.mdc-switch--checked .mdc-switch__track {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.mdc-switch.mdc-switch--checked .mdc-switch__thumb {
+    background-color: var(--primary-color);
+}
+
+.mdc-switch__label {
+    color: var(--text-primary);
+}
+
+.button-style {
+    background-color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 20px;
+    transition: border-radius 0.2s ease-in-out, background-color 0.4s ease;
+    position: relative; /* CRUCIAL for positioning the ripple */
+    overflow: hidden; /* CRUCIAL to hide the ripple outside the button */
+    user-select: none;
+}
+
+.button-style:hover {
+    background-color: var(--primary-dark);
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.button-style:active {
+    background-color: var(--primary-darkest);
+    border-radius: 10px;
+}
+
+#footer-text {
+    margin-left: 10px;
+}
+
+#alert-container {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    /* background-color: var(--primary-light); */ /* Keep if you have the variable */
+}
+
+.copy-alert {
+    padding: 10px 20px; /* Increased padding for better visibility */
+    border-radius: 5px;
+    opacity: 0; /* Initially hidden */
+    transform: translateY(-100%); /* Initially positioned above */
+    transition: opacity 0.3s ease-out, transform 0.3s ease-out; /* For appearing */
+    background-color: #e0f7fa; /* Light cyan background */
+    border: 1px solid #b2ebf2;
+    color: #00838f; /* Dark cyan text */
+    margin-bottom: 10px; /* Add some margin */
+    transform-origin: top center; /* For the zoom-out effect */
+}
+
+.copy-alert.show-alert {
+    opacity: 1; /* Fade in */
+    transform: translateY(0); /* Slide down to its normal position */
+}
+
+.copy-alert.fade-out {
+    opacity: 0; /* Fade out */
+    transform: scale(0.1); /* Zoom out slightly */
+    transition: opacity 0.5s ease-in, transform 0.5s ease-in; /* For disappearing */
+}
+
+.ripple {
+    position: absolute;
+    border-radius: 50%; /* Makes it circular */
+    background: rgba(255, 255, 255, 0.4); /* Semi-transparent white */
+    transform: scale(0); /* Starts hidden */
+    animation: ripple-animation 0.6s linear; /* Apply the animation */
+    pointer-events: none; /* Allows clicks to pass through the ripple */
+}
+
+@keyframes ripple-animation {
+  to {
+    transform: scale(4); /* Expands the ripple */
+    opacity: 0; /* Fades out the ripple */
+  }
+}
+
+#welcome-message-div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#welcome-message {
+    font-size: 300%;
+    text-align: center;
+}
+
+.instructions-div {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto;
+}
+
+.gif-container {
+    position: relative; /* Crucial for absolute positioning of overlay */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 80%;
+    aspect-ratio: 16 / 9;
+    border-radius: 25px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+    overflow: hidden; /* Ensures rounded corners are applied to children */
+}
+
+.gif-container:hover {
+    transform: translateY(2px);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0);
+}
+
+.gif-container img { /* Target the img inside the container directly */
+    display: block; /* Removes extra space below image */
+    width: 100%;
+    /* Add height and object-fit for consistent sizing if .gif-container has a fixed height */
+    /* height: 100%; */
+    /* object-fit: cover; */
+}
+
+.overlay-shade {
+    position: absolute; /* Essential for positioning over the image */
+    top: 0; /* Position from top */
+    left: 0; /* Position from left */
+    width: 100%; /* Cover entire width of parent */
+    height: 100%; /* Cover entire height of parent */
+    background-color: var(--background-color); /* Translucent white from variable */
+    opacity: 0.5; /* Initial state: visible */
+    z-index: 1; /* Ensures it's above the image but below any text/content */
+    transition: opacity 0.3s ease; /* Smooth transition for showing/hiding */
+}
+
+/* This class will be added by JavaScript to hide the overlay */
+.overlay-shade.hide-overlay {
+    opacity: 0;
+}
+
+.yt-embed {
+    width: 50%;
+    aspect-ratio: 16 / 9;
+    border-radius: 25px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+    overflow: hidden; /* Ensures rounded corners are applied to children */
+}
+
+.yt-embed:hover {
+    transform: translateY(2px);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0);
+}
+
+#playground {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto;
+    width: 50%;
+    background-color: var(--primary-light);
+    color: #ffffff;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    margin-right: 10px;
+    padding: 5px;
+    border-radius: 25px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+#playground:hover {
+    transform: translateY(2px);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0);
+}
+
+.playground-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    border-radius: 25px;
+    width: 95%;
+    background-color: var(--secondary-color);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.playground-item:hover {
+    transform: translateY(2px);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0);
+}
+
+#confetti-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden; /* Hide particles outside the viewport */
+    pointer-events: none; /* Allow clicks/interactions below the confetti */
+    z-index: 9999; /* Ensure confetti is on top */
+}
+
+.confetti-particle {
+    position: absolute;
+    /* Initial transform will be set by JS */
+    /* Use will-change for performance hint, but be careful not to overuse */
+    will-change: transform, opacity;
+    border-radius: 2px; /* Slightly rounded corners for Material feel */
+}
+
+#confetti-button {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 20;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+}
+
+#confetti-button:hover {
+    background-color: var(--primary-dark);
+    border-radius: 25px;
+    cursor: pointer;
+}
+
+#confetti-button:active {
+    background-color: var(--primary-darkest);
+    border-radius: 25px;
+}
+
+#pasted-output {
+    font-size: 7px;
+    color: var(--background-color);
+}
+
+.infinitecopy-text {
+    color: #ffffff;
+    background-color: var(--primary-color);
+    padding: 5px;
+    border-radius: 12.5px;
+}
+
+#tutorial-finish-aligner {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}

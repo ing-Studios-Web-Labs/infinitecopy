@@ -1,23 +1,13 @@
 // Global variable to store the current filter state
 // Can be 'all', 'text', or 'image'
+
 let currentFilter = 'all';
-
-const initializeMDC = () => {
-    const switches = document.querySelectorAll('.mdc-switch');
-    switches.forEach(switchElement => {
-        new mdc.switch.MDCSwitch(switchElement);
-    });
-};
-
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeMDC);
-} else {
-    initializeMDC();
-}
+let storageMode = chrome.storage.sync;
+let imageStorageState;
 
 async function retrieveTheme(getValue = false) {
     const storageKey = "extensionTheme";
-    const result = await chrome.storage.sync.get(storageKey);
+    const result = await storageMode.get(storageKey);
     let themeColor = result[storageKey] || [];
     if (getValue === true) {
         console.log('getValue === true!');
@@ -58,7 +48,7 @@ async function togglePinStatus(originalIndex) {
     console.log('Toggling pin status for item at original index:', originalIndex);
 
     try {
-        const data = await chrome.storage.sync.get('copiedItems');
+        const data = await storageMode.get('copiedItems');
         let copiedItems = data.copiedItems || [];
 
         // --- CRITICAL FIX START ---
@@ -120,11 +110,12 @@ async function togglePinStatus(originalIndex) {
         }
 
         // <<< CRITICAL FIX from previous round: AWAIT the storage.sync.set call
-        await chrome.storage.sync.set({ 'copiedItems': copiedItems });
+        await storageMode.set({ 'copiedItems': copiedItems });
         console.log('Item pin status toggled and storage updated.');
 
         // Re-render the list in the popup UI
         checkCopiedItems();
+        updateStorage();
 
         // <<< CRITICAL FIX from previous round: Send message to background script *only once* and *after* storage is updated
         chrome.runtime.sendMessage({ action: "refreshPasteSubmenus" }, (response) => {
@@ -144,9 +135,27 @@ async function togglePinStatus(originalIndex) {
     }
 }
 
+async function checkStorageMode() {
+    const data = await chrome.storage.local.get('storageMode');
+    // Check for the *string value* of the mode preference
+    if (data.storageMode === 'sync') { // Assuming you save "sync" or "local" as strings
+        console.log('Storage mode is valid: sync');
+        storageMode = chrome.storage.sync; // Assign the actual storageMode object
+    } else if (data.storageMode === 'local') { // Explicitly check for "local"
+        console.log('Storage mode is valid: local');
+        storageMode = chrome.storage.local; // Assign the actual chrome.storage.local object
+    } else {
+        // If not set or invalid, default to 'sync' (or 'local', align with your log)
+        console.log('Mode is not set or has an unexpected value. Defaulting to sync.');
+        storageMode = chrome.storage.sync;
+        // Optionally, save this default preference for next time
+        await chrome.storage.local.set({ 'storageMode': 'sync' }); 
+    }
+}
+
 function checkCopiedItems() {
     const copied_items_div = document.getElementById('copied-items');
-    chrome.storage.sync.get('copiedItems', function(data) {
+    storageMode.get('copiedItems', function(data) {
         let copiedItems = data.copiedItems || [];
 
         const pinnedItems = copiedItems.filter(item => item.isPinned);
@@ -189,7 +198,11 @@ function checkCopiedItems() {
                     const imgElement = tempDiv.querySelector('img');
 
                     if (imgElement) {
-                        imgdiv.innerHTML = `<h2>${displayIndex+1}:</h2>`;
+                        // Check if image is using base64 or URL
+                        const imgSrc = imgElement.src;
+
+                        imgdiv.innerHTML = `<h2>${displayIndex+1}: Image</h2>`;
+                        
                         const displayedImg = document.createElement('img');
                         displayedImg.src = imgElement.src;
                         displayedImg.alt = imgElement.alt || 'Copied Image';
@@ -198,7 +211,7 @@ function checkCopiedItems() {
                         displayedImg.style.borderRadius = '25px';
                         imgdiv.appendChild(displayedImg);
                     } else {
-                        imgdiv.innerHTML = `<h2>${displayIndex+1}:</h2>Image (HTML snippet)`;
+                        imgdiv.innerHTML = `<h2>${displayIndex+1}: Image (HTML snippet)</h2>`;
                     }
                     contentElement.appendChild(imgdiv);
 
@@ -278,6 +291,7 @@ function checkCopiedItems() {
             copiedLists.forEach(item => {
                 item.addEventListener('click', handleCopiedItemClick);
             });
+            buttonRippleEffect();
 
         } else {
             const message = document.createElement('p');
@@ -314,6 +328,7 @@ function handleFilterClick(type) {
     }
     // Re-render the list with the new filter
     checkCopiedItems();
+        updateStorage();
 
     // Optionally, update button styles to show active filter
     updateFilterButtonStyles();
@@ -346,42 +361,135 @@ async function checkClipboardType() {
         const clipboardItems = await navigator.clipboard.read();
         for (const clipboardItem of clipboardItems) {
             const clipboardTypes = clipboardItem.types;
-            if (clipboardTypes.includes('text/html') && clipboardTypes.includes('image/png')) {
-                console.log('PNG Image with HTML data detected!');
-                const htmlBlob = await clipboardItem.getType('text/html');
-                const htmlText = await htmlBlob.text();
-                console.log('HTML Text:', htmlText);
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = htmlText;
-                const imgElement = tempDiv.querySelector('img');
-                if (imgElement && imgElement.src) {
-                    pasteItem(htmlText);
+            console.log('Clipboard types detected:', clipboardTypes);
+
+            // Scenario: imageStorageState is 'srcurl'
+            if (imageStorageState === 'srcurl') {
+                if (clipboardTypes.includes('text/html')) {
+                    const htmlBlob = await clipboardItem.getType('text/html');
+                    const htmlText = await htmlBlob.text();
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = htmlText;
+                    const imgElement = tempDiv.querySelector('img');
+
+                    if (imgElement && imgElement.src) {
+                        console.log('Image found in HTML, storing as SRC URL:', imgElement.src);
+                        pasteItem(htmlText); // Pass the original HTML
+                    } else {
+                        // HTML found, but no <img> with src. Alert the user.
+                        console.log('HTML found, but no image source URL detected.');
+                        showAlert('Image source URL could not be found. Please turn on Base64 encoding to paste images without URLs.');
+                    }
+                } else if (clipboardTypes.includes('text/plain')) {
+                    // Handle plain text as fallback
+                    console.log('Plain text detected in srcurl mode.');
+                    pasteTextFromClipboard();
                 } else {
-                    pasteItem(htmlText);
+                    // No HTML found on clipboard when srcurl is desired. Alert the user.
+                    console.log('No HTML detected on clipboard for srcurl state.');
+                    showAlert('Image source URL could not be found. Please turn on Base64 encoding to paste images without URLs.');
                 }
-            } else if (clipboardTypes.includes('text/plain')) {
+            }
+            // Scenario: imageStorageState is 'base64'
+            else if (imageStorageState === 'base64') {
+                // Check for any image type, not just PNG
+                const imageTypes = clipboardTypes.filter(type => type.startsWith('image/'));
+                
+                if (imageTypes.length > 0) {
+                    // Prioritize common image formats
+                    let imageType = imageTypes.find(type => type === 'image/png') || 
+                                   imageTypes.find(type => type === 'image/jpeg') || 
+                                   imageTypes.find(type => type === 'image/gif') ||
+                                   imageTypes.find(type => type === 'image/webp') ||
+                                   imageTypes[0]; // fallback to first available image type
+                    
+                    console.log(`${imageType} Image detected, converting to Base64.`);
+                    
+                    try {
+                        const imageBlob = await clipboardItem.getType(imageType);
+                        const reader = new FileReader();
+                        
+                        reader.onloadend = () => {
+                            const base64data = reader.result;
+                            console.log('Saving as Base64:', base64data.substring(0, 100) + '...');
+                            
+                            // Check if there's also HTML available
+                            if (clipboardTypes.includes('text/html')) {
+                                clipboardItem.getType('text/html')
+                                    .then(htmlBlob => htmlBlob.text())
+                                    .then(html => {
+                                        // Create HTML with base64 image
+                                        const htmlWithBase64 = html.replace(
+                                            /<img[^>]*src\s*=\s*["'][^"']*["'][^>]*>/gi,
+                                            `<img src="${base64data}" alt="Copied Image">`
+                                        );
+                                        pasteItem(htmlWithBase64);
+                                    })
+                                    .catch(error => {
+                                        console.error('Error processing HTML:', error);
+                                        // Fallback to just base64 image
+                                        pasteItem(`<img src="${base64data}" alt="Copied Image">`);
+                                    });
+                            } else {
+                                // No HTML, just create simple img tag with base64
+                                pasteItem(`<img src="${base64data}" alt="Copied Image">`);
+                            }
+                        };
+                        
+                        reader.onerror = (error) => {
+                            console.error('FileReader error:', error);
+                            showAlert('Failed to convert image to Base64. Please try again.');
+                        };
+                        
+                        reader.readAsDataURL(imageBlob);
+                        
+                    } catch (error) {
+                        console.error('Error processing image blob:', error);
+                        showAlert('Failed to process image. Please try again.');
+                    }
+                    
+                } else if (clipboardTypes.includes('text/html')) {
+                    // If base64 is desired, but no image, but there is HTML, paste HTML
+                    const htmlBlob = await clipboardItem.getType('text/html');
+                    const htmlText = await htmlBlob.text();
+                    console.log('HTML detected but no image. Pasting HTML.');
+                    pasteItem(htmlText);
+                } else if (clipboardTypes.includes('text/plain')) {
+                    // If base64 is desired, but no image or html, then plain text
+                    console.log('Plain text detected in base64 mode.');
+                    pasteTextFromClipboard();
+                }
+            }
+            // Default: Handle plain text if no specific image state matches
+            else if (clipboardTypes.includes('text/plain')) {
+                console.log('Plain text detected (default case).');
                 pasteTextFromClipboard();
             }
+            
+            // Break after processing the first clipboard item
+            break;
         }
     } catch (error) {
         console.error('Failed to read clipboard:', error);
+        showAlert('Failed to read clipboard. Please grant permission or try again.');
     }
 }
 
 // Adjusted handleDeleteItem to correctly use the originalIndex
 function handleDeleteItem(originalIndex) {
     console.log('Deleting item at original index:', originalIndex);
-    chrome.storage.sync.get('copiedItems', function(data) {
+    storageMode.get('copiedItems', function(data) {
         const copiedItems = data.copiedItems || [];
         // Filter based on the original index
         const updatedItems = copiedItems.filter((_, i) => i !== originalIndex);
 
-        chrome.storage.sync.set({ 'copiedItems': updatedItems }, function() {
+        storageMode.set({ 'copiedItems': updatedItems }, function() {
             if (chrome.runtime.lastError) {
                 console.error('Error updating storage after deletion:', chrome.runtime.lastError);
             } else {
                 console.log('Item deleted and storage updated.');
-                checkCopiedItems(); // Re-render the list
+                checkCopiedItems();
+                updateStorage();
             }
         });
         chrome.runtime.sendMessage({ action: "refreshPasteSubmenus" }, (response) => {
@@ -507,7 +615,7 @@ async function handleCopiedItemClick(event) {
         } else {
             // Handle cases where it's not an image or image conversion failed
             if (isValidUrl(rawValue)) {
-                if (event.ctrlKey) {
+                if (event.ctrlKey || event.metaKey) {
                     try {
                         chrome.tabs.create({ url: rawValue, active: true }, (newTab) => {
                             console.log('Opened new tab with ID:', newTab.id, 'and URL:', newTab.url);
@@ -541,7 +649,7 @@ async function handleCopiedItemClick(event) {
 
 async function handleAddText(value) {
     try {
-        chrome.storage.sync.get('copiedItems', function(data) {
+        storageMode.get('copiedItems', function(data) {
             let copiedItems = data.copiedItems || [];
 
             // Add this filter to clean up potential bad data before processing
@@ -559,14 +667,15 @@ async function handleAddText(value) {
 
             const updatedItems = pinnedItems.concat(unpinnedItems);
 
-            const MAX_ITEMS = 50;
+            const MAX_ITEMS = 5000;
             if (updatedItems.length > MAX_ITEMS) {
                 updatedItems = updatedItems.slice(0, MAX_ITEMS);
             }
 
-            chrome.storage.sync.set({ 'copiedItems': updatedItems }, function() {
+            storageMode.set({ 'copiedItems': updatedItems }, function() {
                 console.log('Text added and saved:', value);
                 checkCopiedItems();
+                updateStorage();
             });
             chrome.runtime.sendMessage({ action: "refreshPasteSubmenus" }, (response) => {
                 if (chrome.runtime.lastError) {
@@ -584,7 +693,7 @@ async function handleAddText(value) {
 function showAlert(textData, inputData = null) {
     console.log(`inputData is:`, inputData);
     if (inputData != null) {
-        if (inputData == 'addText') {
+        if (inputData === 'addText') {
             console.log(`'if' is called!`);
             const container = document.getElementById('alert-container');
             if (!container) {
@@ -611,7 +720,11 @@ function showAlert(textData, inputData = null) {
                     event.preventDefault();
 
                     const inputValue = inputElement.value;
-                    handleAddText(inputValue);
+                    if (inputValue !== '') {
+                        handleAddText(inputValue);
+                    } else {
+                        console.log('Input cancelled. Input value was null.');
+                    }
 
                     alertDiv.classList.remove('show-alert');
                     alertDiv.classList.add('fade-out');
@@ -658,7 +771,7 @@ function pasteTextEventListener() {
     const paste_button = document.getElementById('paste-btn');
     paste_button.addEventListener('click', checkClipboardType);
     document.addEventListener('keydown', (event) => {
-        if (event.ctrlKey && event.key == 'v') {
+        if (event.ctrlKey && event.key === 'v' || event.metalKey && event.key === 'v') {
             checkClipboardType();
         }
     });
@@ -667,7 +780,7 @@ function pasteTextEventListener() {
 async function pasteTextFromClipboard() {
     try {
         const pastedText = await navigator.clipboard.readText();
-        chrome.storage.sync.get('copiedItems', function(data) {
+        storageMode.get('copiedItems', function(data) {
             let copiedItems = data.copiedItems || [];
 
             // Add this filter to clean up potential bad data before processing
@@ -685,14 +798,15 @@ async function pasteTextFromClipboard() {
 
             const updatedItems = pinnedItems.concat(unpinnedItems);
 
-            const MAX_ITEMS = 50;
+            const MAX_ITEMS = 5000;
             if (updatedItems.length > MAX_ITEMS) {
                 updatedItems = updatedItems.slice(0, MAX_ITEMS);
             }
 
-            chrome.storage.sync.set({ 'copiedItems': updatedItems }, function() {
+            storageMode.set({ 'copiedItems': updatedItems }, function() {
                 console.log('Text pasted and saved:', pastedText);
                 checkCopiedItems();
+                updateStorage();
             });
             chrome.runtime.sendMessage({ action: "refreshPasteSubmenus" }, (response) => {
                 if (chrome.runtime.lastError) {
@@ -712,20 +826,27 @@ function addTextEventListener() {
     addTextBtn.addEventListener('click', () => {
         showAlert('What would you like to input?', 'addText');
     });
+    document.addEventListener('keydown', (event) => {
+        if (event.altKey && event.key === 'a') {
+            console.log('alt + a pressed!');
+            showAlert('What would you like to input?', 'addText');
+        }
+    });
 }
 
 function clearAllText() {
     const clearAllBtn = document.getElementById('clear-all-btn');
     clearAllBtn.addEventListener('click', function() {
-        chrome.storage.sync.remove('copiedItems', function() {
+        storageMode.remove('copiedItems', function() {
             showAlert(`All copied items cleared successfully.`);
             checkCopiedItems();
+            updateStorage();
         });
     });
 }
 
 async function pasteItem(itemValue) {
-    chrome.storage.sync.get('copiedItems', function(data) {
+    storageMode.get('copiedItems', function(data) {
         let copiedItems = data.copiedItems || [];
 
         // Add this filter to clean up potential bad data before processing
@@ -743,14 +864,15 @@ async function pasteItem(itemValue) {
 
         const updatedItems = pinnedItems.concat(unpinnedItems);
 
-        const MAX_ITEMS = 50;
+        const MAX_ITEMS = 5000;
         if (updatedItems.length > MAX_ITEMS) {
             updatedItems = updatedItems.slice(0, MAX_ITEMS);
         }
 
-        chrome.storage.sync.set({ 'copiedItems': updatedItems }, function() {
+        storageMode.set({ 'copiedItems': updatedItems }, function() {
             console.log('Item pasted and saved:', itemValue);
             checkCopiedItems();
+            updateStorage();
         });
         chrome.runtime.sendMessage({ action: "refreshPasteSubmenus" }, (response) => {
                 if (chrome.runtime.lastError) {
@@ -792,11 +914,101 @@ function updateActionButtonsPosition() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', function() {
+function buttonRippleEffect() {
+    document.querySelectorAll('.button-style').forEach(button => {
+        button.addEventListener('click', function(e) {
+            const button = e.currentTarget;
+
+            // Create the ripple element
+            const circle = document.createElement('span');
+
+            // Calculate the diameter for the ripple (large enough to cover the button)
+            // Use the larger of width or height, assuming it's roughly square for a circular button
+            const diameter = Math.max(button.clientWidth, button.clientHeight);
+            const radius = diameter / 2;
+
+            // Set the size of the ripple
+            circle.style.width = circle.style.height = `${diameter}px`;
+
+            // Position the ripple at the click location
+            // e.clientX/Y are relative to the viewport
+            // button.getBoundingClientRect().left/top are relative to the viewport
+            // Subtracting radius centers the circle at the click point
+            const buttonRect = button.getBoundingClientRect();
+            circle.style.left = `${e.clientX - buttonRect.left - radius}px`;
+            circle.style.top = `${e.clientY - buttonRect.top - radius}px`;
+
+            // Add the ripple class to trigger CSS animation
+            circle.classList.add('ripple');
+
+            // Remove any existing ripples to prevent multiple overlapping ripples
+            const existingRipple = button.querySelector('.ripple');
+            if (existingRipple) {
+                existingRipple.remove();
+            }
+
+            // Append the ripple to the button
+            button.appendChild(circle);
+
+            // Remove the ripple element after its animation finishes
+            circle.addEventListener('animationend', () => {
+                circle.remove();
+            });
+        });
+    });
+}
+
+function updateStorage() {
+    chrome.runtime.sendMessage({ type: 'updateStorageInfo' }, (response) => {
+        if (response && response.success) {
+            console.log("Message sent successfully to the Settings page!");
+        } else {
+            console.error("Failed to send message or the Settings page is not ready.");
+        }
+    });
+}
+
+function initializeImageStorageState(storageState) {
+    if (storageState === 'srcurl' || storageState === 'base64') {
+        imageStorageState = storageState;
+    } else {
+        imageStorageState = 'srcurl';
+        chrome.storage.local.set({ 'imageStorageMode' : 'srcurl' });
+    }
+}
+
+async function checkImageStorageType() {
+    if (storageMode === chrome.storage.sync) {
+        initializeImageStorageState('srcurl');
+    } else {
+        const data = await chrome.storage.local.get(['imageStorageMode', 'lastImageStorageMode']);
+        const storedImageMode = data.imageStorageMode;
+        const lastImageMode = data.lastImageStorageMode;
+
+        if (storedImageMode === 'srcurl') {
+            initializeImageStorageState('srcurl');
+        } else if (storedImageMode === 'base64') {
+            initializeImageStorageState('base64');
+        } else {
+            if (lastImageMode === 'base64' || lastImageMode === 'srcurl') {
+                initializeImageStorageState(lastImageMode);
+                await chrome.storage.local.set({ 'imageStorageMode' : lastImageMode });
+            } else {
+                initializeImageStorageState('srcurl');
+                await chrome.storage.local.set({ 'imageStorageMode' : 'srcurl' });
+            }
+        }
+    }
+}
+
+async function initializePopup() {
+    await checkStorageMode();
+    await checkImageStorageType();
     openSettings();
     retrieveTheme();
     updateActionButtonsPosition();
-    checkCopiedItems(); // This will now render the new dropdowns on each item
+    buttonRippleEffect();
+    checkCopiedItems();
     displayFooterText();
     pasteTextEventListener();
     addTextEventListener();
@@ -817,4 +1029,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Attach a scroll event listener
     window.addEventListener('scroll', updateActionButtonsPosition);
-});
+}
+
+document.addEventListener('DOMContentLoaded', initializePopup);

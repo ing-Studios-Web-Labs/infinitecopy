@@ -1,9 +1,10 @@
 // background.js
 
-// Function to store pasted text into chrome.storage.sync
+// Function to store pasted text into storageMode
 async function pasteToStorage(pastedText, sourceUrl = "Unknown Source", itemType) {
     try {
-        const data = await chrome.storage.sync.get("copiedItems");
+        await checkStorageMode();
+        const data = await storageMode.get("copiedItems");
         let copiedItems = data.copiedItems || [];
 
         // Filter out any potentially malformed items (null, undefined, or missing 'value' property)
@@ -31,14 +32,15 @@ async function pasteToStorage(pastedText, sourceUrl = "Unknown Source", itemType
         // Recombine the arrays: pinned items first, then unpinned.
         let updatedItems = pinnedItems.concat(unpinnedItems);
 
-        const MAX_ITEMS = 50; // Define maximum number of items to store
+        const MAX_ITEMS = 5000; // Define maximum number of items to store
         if (updatedItems.length > MAX_ITEMS) {
             // If the total exceeds MAX_ITEMS, trim from the end of the unpinned items.
             // This prioritizes pinned items and keeps the most recent unpinned items.
             updatedItems = updatedItems.slice(0, MAX_ITEMS);
         }
 
-        await chrome.storage.sync.set({ 'copiedItems': updatedItems });
+        await storageMode.set({ 'copiedItems': updatedItems });
+        updateStorage();
 
         // Display a notification to the user
         chrome.notifications.create({
@@ -61,12 +63,13 @@ async function pasteToStorage(pastedText, sourceUrl = "Unknown Source", itemType
 // Function to retrieve the extension's theme color settings
 async function retrieveTheme() {
     try {
-        const result = await chrome.storage.sync.get("extensionTheme");
+        const result = await storageMode.get("extensionTheme");
 
         // If no theme is set, set a default and return it
         if (!result.extensionTheme) {
             const defaultHexColor = ['#2196F3', '#64B5F6', '#1976D2', '#0D47A1', '#03A9F4', '#E3F2FD', '#FFC107'];
-            await chrome.storage.sync.set({ extensionTheme: defaultHexColor });
+            await storageMode.set({ extensionTheme: defaultHexColor });
+            updateStorage();
             return defaultHexColor;
         }
         return result.extensionTheme;
@@ -126,7 +129,7 @@ async function migrateDataFormat() {
     console.log("Checking for data migration...");
 
     try {
-        const data = await chrome.storage.sync.get("copiedItems");
+        const data = await storageMode.get("copiedItems");
         let rawCopiedItems = data.copiedItems || [];
 
         let needsMigration = false;
@@ -160,7 +163,8 @@ async function migrateDataFormat() {
 
         if (needsMigration) {
             console.log("Migrating data format...");
-            await chrome.storage.sync.set({ 'copiedItems': normalizedCopiedItems });
+            await storageMode.set({ 'copiedItems': normalizedCopiedItems });
+            updateStorage();
             console.log("Data migration complete.");
         } else {
             console.log("No data migration needed.");
@@ -270,7 +274,7 @@ async function refreshPasteSubmenus() {
     });
     // 4. Retrieve stored items and prepare them for display.
     try {
-        const storedItems = await chrome.storage.sync.get("copiedItems");
+        const storedItems = await storageMode.get("copiedItems");
         const copiedItems = storedItems.copiedItems || [];
 
         const pinnedItems = copiedItems.filter(item => item.isPinned === true);
@@ -339,6 +343,16 @@ async function refreshPasteSubmenus() {
     }
 }
 
+function updateStorage() {
+    chrome.runtime.sendMessage({ type: 'updateStorageInfo' }, (response) => {
+        if (response && response.success) {
+            console.log("Message sent successfully to the Settings page!");
+        } else {
+            console.error("Failed to send message or the Settings page is not ready.");
+        }
+    });
+}
+
 // Function to handle clicks on the dynamic "Paste Item: ..." submenus
 async function handlePasteSubmenuClick(info, tab) {
     // Check if the clicked menu item ID starts with our specific dynamic prefix
@@ -350,7 +364,7 @@ async function handlePasteSubmenuClick(info, tab) {
         }
 
         try {
-            const storedItems = await chrome.storage.sync.get("copiedItems");
+            const storedItems = await storageMode.get("copiedItems");
             const copiedItems = storedItems.copiedItems || [];
 
             // --- START OF REQUIRED UPDATE ---
@@ -389,7 +403,12 @@ async function handlePasteSubmenuClick(info, tab) {
                             }
                         } else {
                             console.warn("Active element is not an editable input, textarea, or contenteditable.");
-                            alert("Please click into an editable text field to paste."); // Inform the user if paste failed.
+                            chrome.notifications.create({
+                                type: "basic",
+                                iconUrl: "/assets/logo_blue.png",
+                                title: "Paste Error",
+                                message: "Please paste into an editable text field."
+                            }); // Inform the user if paste failed.
                         }
                     },
                     args: [originalItem.value] // Pass the actual text content to be pasted to the injected script.
@@ -425,13 +444,36 @@ async function handlePasteSubmenuClick(info, tab) {
     }
 }
 
+let storageMode = chrome.storage.sync;
+
+async function checkStorageMode() {
+    const data = await chrome.storage.local.get('storageMode');
+    // Check for the *string value* of the mode preference
+    if (data.storageMode === 'sync') { // Assuming you save "sync" or "local" as strings
+        console.log('Storage mode is valid: sync');
+        storageMode = chrome.storage.sync; // Assign the actual storageMode object
+    } else if (data.storageMode === 'local') { // Explicitly check for "local"
+        console.log('Storage mode is valid: local');
+        storageMode = chrome.storage.local; // Assign the actual chrome.storage.local object
+    } else {
+        // If not set or invalid, default to 'sync' (or 'local', align with your log)
+        console.log('Mode is not set or has an unexpected value. Defaulting to sync.');
+        storageMode = chrome.storage.sync;
+        // Optionally, save this default preference for next time
+        await chrome.storage.local.set({ 'storageMode': 'sync' }); 
+    }
+}
 
 // --- Event Listeners ---
 
 // Listener for when the extension is first installed or updated to a new version.
 chrome.runtime.onInstalled.addListener(async (details) => {
     console.log('Extension installed or updated. Reason:', details.reason);
-    
+    if (details.reason === chrome.runtime.OnInstalledReason.INSTALL) {
+        // This code runs only when the extension is first installed
+        chrome.tabs.create({ url: 'quickstart/quickstart.html' });
+    }
+    await checkStorageMode();
     // Create the static context menu items (Copy text, Copy link, Copy image).
     // This is typically done once on install.
     createStaticContextMenus(); 
@@ -448,7 +490,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 // Listener for when the browser starts up. This event fires once per browser session.
 chrome.runtime.onStartup.addListener(async () => {
     console.log('Extension started up!');
-    
+    await checkStorageMode();
     // Re-create static menus for robustness. Chrome will gracefully ignore if they already exist.
     createStaticContextMenus();
     
@@ -497,17 +539,20 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
                 await refreshPasteSubmenus(); // Refresh menus after adding a new item.
             } else {
                 // If image HTML could not be retrieved, alert the user.
-                chrome.scripting.executeScript({
-                    target: { tabId: tab.id },
-                    func: () => alert("Could not retrieve HTML for the image.")
+                chrome.notifications.create({
+                    type: "basic",
+                    iconUrl: "/assets/logo_blue.png",
+                    title: "Copy Error",
+                    message: "Could not retrieve HTML for the image.\nBase64 encoding currently does not work for context menus."
                 });
             }
         } catch (error) {
             console.error("Image processing error:", error);
-            chrome.scripting.executeScript({
-                target: { tabId: tab.id },
-                func: (msg) => alert("An error occurred: " + msg),
-                args: [error.message || "Unknown error"]
+            chrome.notifications.create({
+                type: "basic",
+                iconUrl: "/assets/logo_blue.png",
+                title: "Copy Error",
+                message: "Error proccessing the image."
             });
         }
     } 
@@ -521,18 +566,19 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 });
 
 // Listener for messages sent from other parts of the extension (e.g., popup script, content scripts).
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener(async(request, sender, sendResponse) => {
     // If the message requests an update to the extension's theme (e.g., from popup settings).
     if (request.action === "updateExtensionTheme") {
         setIcon(); // Re-set the icon to reflect the new theme.
         sendResponse({ success: true, message: "Icon update triggered." });
         return true; // Indicate that `sendResponse` will be called asynchronously.
-    } 
-    // If the message explicitly requests a refresh of the paste submenus
-    // (e.g., after items are manually deleted or pinned in the popup UI).
-    else if (request.action === "refreshPasteSubmenus") {
+    } else if (request.action === "refreshPasteSubmenus") {
         refreshPasteSubmenus();
         sendResponse({ success: true, message: "Paste submenus refresh triggered." });
+        return true;
+    } else if (request.action === "refreshStorageMode") {
+        await checkStorageMode();
+        sendResponse({ success: true, message: "Storage mode refresh triggered." });
         return true;
     }
     // For any unhandled messages, return `false`.

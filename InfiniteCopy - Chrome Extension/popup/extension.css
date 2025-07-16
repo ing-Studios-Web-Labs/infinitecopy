@@ -21,7 +21,7 @@ html,body {
 body {
     margin: 0;
     padding: 0;
-    font-family: 'Google Sans'; /* Consider a Material Design font like Roboto */
+    font-family: 'Google Sans'; /* Consider a Material Design font like Google Sans */
     background-color: var(--background-color);
     color: var(--text-primary);
 }
@@ -92,6 +92,9 @@ button:hover {
     height: 40px;
     border-radius: 20px;
     transition: border-radius 0.2s ease-in-out;
+    position: relative; /* CRUCIAL for positioning the ripple */
+    overflow: hidden; /* CRUCIAL to hide the ripple outside the button */
+    user-select: none;
 }
 .button-style:hover {
     background-color: var(--primary-dark);
@@ -105,6 +108,7 @@ button:hover {
 #footer-text {
     margin-left: 10px;
 }
+
 .copied-list {
     cursor: pointer;
     position: relative; /* Crucial for positioning the item dropdown */
@@ -322,6 +326,7 @@ button:hover {
     font-weight: bold;
     font-size: 1.2em;
     cursor: pointer;
+    opacity: 0.925;
     /* Optional: margin if needed */
 }
 
@@ -352,4 +357,20 @@ button:hover {
     display: flex; /* Make it visible */
     opacity: 1;
     transform: translateX(0); /* Slide into place */
+}
+
+.ripple {
+  position: absolute;
+  border-radius: 50%; /* Makes it circular */
+  background: rgba(255, 255, 255, 0.4); /* Semi-transparent white */
+  transform: scale(0); /* Starts hidden */
+  animation: ripple-animation 0.6s linear; /* Apply the animation */
+  pointer-events: none; /* Allows clicks to pass through the ripple */
+}
+
+@keyframes ripple-animation {
+  to {
+    transform: scale(4); /* Expands the ripple */
+    opacity: 0; /* Fades out the ripple */
+  }
 }

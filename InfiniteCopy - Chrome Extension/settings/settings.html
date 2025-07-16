@@ -26,10 +26,45 @@
                 <div class="theme-style" id="yellow"></div>
             </div>
         </div>
+        <div id="storage-div">
+            <h1>Storage</h1>
+            <div id="storage-info-container">
+                <h2>Storage Used</h2>
+                <h3 id="storage-used-h3"><span id="storage-used-primary"></span><span id="storage-used-secondary"></span></h3>
+                    <div class="progress-style-track">
+                        <div class="progress-style-fill" id="expressiveProgressBarFill">
+                        <div class="progress-style-stop-indicator"></div>
+                    </div>
+                    
+                </div>
+            </div>
+            <br>
+            <div id="sync-option-container" class="switch-container">
+                <h2>Sync Storage</h2>
+                <label class="switch">
+                    <input type="checkbox" id="syncStorageSwitch">
+                    <span class="slider round"></span>
+                </label>
+            </div>
+            <br>
+            <div id="store-images-efficiently-container" class="switch-container">
+                <div>
+                    <h2>Store Images as Base64 encoding</h2>
+                    <h2>(Experimental Feature)</h2>
+                    <p>Store the image as a Base64 encoding.</p>
+                    <p>Only takes effect if no source URL is found.</p>
+                    <p>Takes up more storage.</p>
+                </div>
+                <label class="switch" id="base64Label">
+                    <input type="checkbox" id="base64Switch">
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        </div>
         <div id="advanced-div">
             <h1>Advanced</h1>
             <h2>Export Data</h2>
-            <p>Export all data in chrome.storage.sync into a JSON format.</p>
+            <p>Export all data in the Chrome storage into a JSON format.</p>
             <div id="export-data-btn" class="button-style">
                 <span class="material-symbols-outlined">
                     data_object
@@ -37,7 +72,7 @@
                 <p>Export Data</p>
             </div>
             <h2>Source code</h2>
-            <p>View source code on GitHub.</p>
+            <p>View the source code on GitHub.</p>
             <div id="open-source-code" class="button-style">
                 <img src="../assets/github-mark/github-mark-white.svg" height="60%">
                 <p>Open in GitHub</p>
