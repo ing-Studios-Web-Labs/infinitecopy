@@ -13,7 +13,6 @@ Feel free to drop a comment or a suggestion if there are any bugs/feedback [here
 We are currently working on:
 1. **Adding support for copying multiple formats (etc. plain text and images at the same time)**
 2. **Adding CSS styling for when you open links with ctrl click**
-3. **Publishing it to the Chrome Web Store! (Really excited for this one!)**
 
 We would like to **thank** all of you guys for your support!
 
